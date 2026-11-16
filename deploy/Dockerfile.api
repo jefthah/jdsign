@@ -1,0 +1,7 @@
+# The workflow builds the Linux binary after running the Go integration tests.
+FROM alpine:3.23
+RUN apk add --no-cache ca-certificates && addgroup -S -g 10001 jdsign && adduser -S -u 10001 -G jdsign jdsign
+COPY --chmod=755 dist/jdsign /usr/local/bin/jdsign
+USER jdsign
+EXPOSE 8300
+ENTRYPOINT ["/usr/local/bin/jdsign"]

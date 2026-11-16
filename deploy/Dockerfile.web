@@ -1,0 +1,10 @@
+# Build apps/web on Linux first; Windows standalone output is not portable.
+FROM node:24-alpine
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
+WORKDIR /app
+COPY --chown=node:node apps/web/.next/standalone/ ./
+COPY --chown=node:node apps/web/.next/static/ ./.next/static/
+COPY --chown=node:node apps/web/public/ ./public/
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]

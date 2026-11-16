@@ -1,0 +1,14 @@
+staging.jd-sign.com {
+    encode zstd gzip
+    header {
+        X-Robots-Tag "noindex, nofollow, noarchive"
+        X-Content-Type-Options nosniff
+        X-JDSign-Environment staging
+    }
+    handle /api/* {
+        reverse_proxy 127.0.0.1:18300
+    }
+    handle {
+        reverse_proxy 127.0.0.1:13300
+    }
+}

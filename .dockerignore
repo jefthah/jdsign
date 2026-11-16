@@ -1,0 +1,7 @@
+.git
+apps/web/node_modules
+apps/web/.next/cache
+apps/web/.next/dev
+apps/web/.env*
+apps/api/.env*
+jdsign-images.tar.gz

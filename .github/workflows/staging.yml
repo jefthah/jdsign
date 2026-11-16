@@ -1,0 +1,116 @@
+name: Staging
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: jdsign
+          POSTGRES_PASSWORD: jdsign-ci
+          POSTGRES_DB: jdsign
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U jdsign -d jdsign"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Test API against PostgreSQL
+        working-directory: apps/api
+        env:
+          TEST_DATABASE_URL: postgres://jdsign:jdsign-ci@127.0.0.1:5432/jdsign?sslmode=disable
+        run: |
+          go vet ./...
+          go test -race -count=1 ./...
+      - name: Check and build web
+        working-directory: apps/web
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: |
+          npm ci
+          npm run lint
+          npx tsc --noEmit
+          npm run build
+      - name: Validate deployment scripts
+        run: |
+          bash -n deploy/bootstrap-staging.sh deploy/deploy-staging.sh deploy/receive.sh
+          POSTGRES_PASSWORD=validation RELEASE_SHA=${GITHUB_SHA} docker compose -f compose.staging.yml config --quiet
+      - name: Build API binary
+        working-directory: apps/api
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p ../../dist
+          go build -trimpath -ldflags='-s -w' -o ../../dist/jdsign ./cmd/jdsign
+      - name: Package release images
+        if: github.event_name != 'pull_request'
+        run: |
+          docker build -f deploy/Dockerfile.api -t jdsign-api:${GITHUB_SHA} .
+          docker build -f deploy/Dockerfile.web -t jdsign-web:${GITHUB_SHA} .
+          docker save jdsign-api:${GITHUB_SHA} jdsign-web:${GITHUB_SHA} | gzip -1 > jdsign-images.tar.gz
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: staging-images
+          path: jdsign-images.tar.gz
+          retention-days: 2
+          compression-level: 0
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: staging
+      url: https://staging.jd-sign.com
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: staging-images
+      - name: Deploy tested release
+        env:
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+          STAGING_HOST: ${{ vars.STAGING_HOST }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$STAGING_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$STAGING_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+          trap 'rm -f "$HOME/.ssh/id_ed25519"' EXIT
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=5 \
+            "jdsign@${STAGING_HOST}" "deploy ${GITHUB_SHA}" < jdsign-images.tar.gz
+      - name: Verify public staging
+        run: |
+          curl --fail --show-error --retry 8 --retry-all-errors --retry-delay 10 --max-time 15 https://staging.jd-sign.com/api/v1/health
+          curl --fail --show-error --max-time 20 https://staging.jd-sign.com/api/v1/categories
+          curl --fail --silent --show-error --max-time 30 https://staging.jd-sign.com/ | grep -F 'Marketplace template website' > /dev/null
