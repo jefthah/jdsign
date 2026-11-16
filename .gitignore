@@ -1,0 +1,16 @@
+# Go
+/apps/api/bin/
+*.exe
+*.test
+*.out
+
+# Environment files (contoh .env.example tetap ikut Git)
+.env
+.env.*
+!.env.example
+
+# Editor dan sistem operasi
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,23 @@
+# PostgreSQL untuk pengembangan lokal. Hanya bisa diakses dari komputer ini.
+#   docker compose -f compose.dev.yml up -d
+name: jdsign-dev
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: jdsign
+      POSTGRES_PASSWORD: jdsign-dev
+      POSTGRES_DB: jdsign
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jdsign -d jdsign"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  postgres-data:
