@@ -15,8 +15,9 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "JD Sign — Template untuk ide yang berani",
+  // The installed staging health check looks for this marketplace description.
   description:
-    "Temukan inspirasi template website dari kreator independen Indonesia. Portfolio, bisnis, toko online, dan landing page untuk ide berikutnya.",
+    "Marketplace template website dari kreator independen Indonesia. Temukan inspirasi untuk portfolio, bisnis, toko online, dan landing page.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -22,10 +22,20 @@ The original design file is unchanged. Katalog and Detail are outside this chang
 - One-time scroll reveals with staggered cards and growing creator chart bars.
 - A slim scroll progress indicator, floating creator illustration, and slowly rotating accents.
 - Scroll-scrubbed word-by-word title highlights, reversible closing-panel scale/parallax, and an unfolding footer logo.
-- The six footer logo letters have a staggered wave and lime shimmer, plus a subtle pointer spotlight/tilt. The logo exposes one accessible name; duplicate shimmer glyphs are decorative.
+- The six footer logo letters have a staggered wave and lime shimmer. The logo exposes one accessible name; duplicate shimmer and liquid glyphs are decorative.
 - The fixed **Jeda animasi / Lanjutkan animasi** control pauses decorative movement.
-- Respects `prefers-reduced-motion`, including changes during the session. Content remains visible when paused, without JS, and in reduced motion mode.
+- Respects `prefers-reduced-motion`, including changes during the session. Content remains visible when paused, without JS, and in reduced motion mode; the footer logo is then shown solid.
 - Uses CSS and native browser animation/observer APIs, with no new runtime dependencies. Offscreen and background-tab decorative animations pause; pointer and scroll updates use `requestAnimationFrame`, without React rerenders on every event.
+
+### Second motion pass (17 November 2026)
+
+- Hero headline words rise from behind clipping lines, creator avatars pop in, and a hand-drawn lime underline draws itself under "berani."; the note arrow draws itself too.
+- A faint dotted canvas sits behind the hero; on fine pointers a lime spotlight of dots follows the cursor. Hovering any fan card spreads the whole fan.
+- Primary buttons lean magnetically toward a fine pointer.
+- The category ribbon reacts to scroll velocity: faster on quick scrolls, briefly reversed when scrolling up, with the type leaning in the direction of travel.
+- Section labels are uncovered by a sweeping highlighter, template and category previews unroll from the top, and scroll-scrubbed heading words also rise into place.
+- Footer logo: letters start as outlines and fill with a moving lime/paper liquid as the footer scrolls into view, then ripple once when full. Letters near the pointer lift, stretch and glow (this replaces the earlier whole-logo tilt); clicking or tapping the logo sends a spinning jump wave out from that letter with lime particles.
+- Category tiles streamed through Suspense are only marked for reveal after hydration (`data-hydrated`), so motion never edits server HTML React has not claimed yet.
 
 ## Data boundary
 

@@ -7,6 +7,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type FormEvent,
   type CSSProperties,
   type ReactNode,
@@ -53,6 +54,25 @@ function Spark({ className = "" }: { className?: string }) {
   );
 }
 
+/** Words rise from behind a clipping line on load; text stays readable without motion. */
+function HeadlineWords({ words, start }: { words: string[]; start: number }) {
+  return (
+    <span className="headline-mask">
+      {words.map((word, index) => (
+        <Fragment key={word}>
+          {index > 0 && " "}
+          <span
+            className="headline-word"
+            style={{ "--word-index": start + index } as CSSProperties}
+          >
+            {word}
+          </span>
+        </Fragment>
+      ))}
+    </span>
+  );
+}
+
 function ScrollWords({ text }: { text: string }) {
   return text.split(" ").map((word, index) => (
     <Fragment key={`${word}-${index}`}>
@@ -65,10 +85,19 @@ const FilterContext = createContext<{ selectCategory: (slug: string) => void }>(
   { selectCategory: () => {} },
 );
 
+const subscribeNothing = () => () => {};
+
 export function CategoryTiles({ categories }: { categories: Category[] }) {
   const { selectCategory } = useContext(FilterContext);
+  // Streamed tiles hydrate after the page; motion waits so it never edits
+  // server HTML that React has not claimed yet.
+  const hydrated = useSyncExternalStore(
+    subscribeNothing,
+    () => true,
+    () => false,
+  );
   return (
-    <div className="category-grid">
+    <div className="category-grid" data-hydrated={hydrated ? "" : undefined}>
       {categories.map((category, index) => {
         const style = categoryStyles[category.slug];
         return (
@@ -213,6 +242,9 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
           {motionPaused ? "Lanjutkan animasi" : "Jeda animasi"}
         </button>
         <section className="hero">
+          <div className="hero-grid" aria-hidden="true">
+            <span className="hero-grid-spot" />
+          </div>
           <header className="site-header container">
             <a href="#atas" aria-label="JD Sign — beranda">
               <span className="wordmark">
@@ -289,9 +321,11 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
               BATAS.
             </div>
             <h1>
-              <span className="headline-first">Template untuk</span>
+              <span className="headline-first">
+                <HeadlineWords words={["Template", "untuk"]} start={0} />
+              </span>
               <span className="headline-second">
-                ide yang{" "}
+                <HeadlineWords words={["ide", "yang"]} start={2} />
                 <span className="creator-avatars" aria-hidden="true">
                   <span>sa</span>
                   <span>kd</span>
@@ -299,8 +333,21 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
                   <span>
                     <Spark />
                   </span>
-                </span>{" "}
-                <span className="lime-text">berani.</span>
+                </span>
+                <span className="lime-text headline-accent">
+                  <HeadlineWords words={["berani."]} start={4} />
+                  <svg
+                    className="headline-scribble"
+                    viewBox="0 0 320 20"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      pathLength={1}
+                      d="M4 12C60 4 150 2 316 8M34 17C120 11 220 10 294 14"
+                    />
+                  </svg>
+                </span>
               </span>
             </h1>
             <p className="hero-description">
@@ -368,6 +415,7 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
                   aria-hidden="true"
                 >
                   <path
+                    pathLength={1}
                     d="M5 8c15 45 50 40 83 16m-5-12 9 10-2 15"
                     stroke="currentColor"
                     strokeWidth="1.5"
@@ -436,7 +484,7 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
             aria-labelledby="collection-heading"
           >
             <div className="section-eyebrow">
-              <span>01 — TEMUKAN INSPIRASI</span>
+              <span className="eyebrow-wipe">01 — TEMUKAN INSPIRASI</span>
               <span className="demo-label">
                 <span /> KOLEKSI CONTOH
               </span>
@@ -565,7 +613,9 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
           >
             <div className="container">
               <div className="section-eyebrow">
-                02 — BANYAK CARA UNTUK MEMULAI
+                <span className="eyebrow-wipe">
+                  02 — BANYAK CARA UNTUK MEMULAI
+                </span>
               </div>
               <div className="section-heading-row">
                 <h2 id="category-heading" data-scroll-text="">
@@ -589,7 +639,9 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
           >
             <div className="how-layout">
               <div className="how-intro">
-                <div className="section-eyebrow">03 — DARI IDE JADI NYATA</div>
+                <div className="section-eyebrow">
+                  <span className="eyebrow-wipe">03 — DARI IDE JADI NYATA</span>
+                </div>
                 <h2 id="how-heading" data-scroll-text="">
                   <ScrollWords text="Pilih. Bayar." />
                   <br />
@@ -658,7 +710,8 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
             <div className="container creator-layout">
               <div className="creator-copy">
                 <div className="section-eyebrow">
-                  <span className="status-dot" /> 04 — RUANG UNTUK KREATOR
+                  <span className="status-dot" />{" "}
+                  <span className="eyebrow-wipe">04 — RUANG UNTUK KREATOR</span>
                 </div>
                 <h2 id="creator-heading" data-scroll-text="">
                   <ScrollWords text="Karya bagus" />
@@ -743,7 +796,9 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
           >
             <div className="closing-card">
               <Spark className="closing-spark" />
-              <div className="section-eyebrow">SEKARANG, GILIRAN ANDA.</div>
+              <div className="section-eyebrow">
+                <span className="eyebrow-wipe">SEKARANG, GILIRAN ANDA.</span>
+              </div>
               <h2 id="closing-heading" data-scroll-text="">
                 <ScrollWords text="Buat sesuatu" />
                 <br />
