@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "./motion.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "JD Sign",
-  description: "Marketplace template website dari kreator Indonesia.",
+  title: "JD Sign — Template untuk ide yang berani",
+  description:
+    "Temukan inspirasi template website dari kreator independen Indonesia. Portfolio, bisnis, toko online, dan landing page untuk ide berikutnya.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -23,7 +25,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="id"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
