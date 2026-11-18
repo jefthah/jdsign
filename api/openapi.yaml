@@ -36,6 +36,126 @@ paths:
                 $ref: "#/components/schemas/CategoryList"
         default:
           $ref: "#/components/responses/Error"
+  /auth/code:
+    post:
+      operationId: requestLoginCode
+      summary: Mengirim kode masuk 6 digit ke email
+      description: >-
+        Dipakai untuk masuk dan mendaftar. Dalam jeda kirim ulang 60 detik tidak ada kode baru
+        yang dikirim; `sent` bernilai false dan `secondsUntilResend` memberi sisa jedanya.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginCodeRequest"
+      responses:
+        "200":
+          description: Kode terkirim, atau masih dalam jeda kirim ulang
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginCodeStatus"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+        default:
+          $ref: "#/components/responses/Error"
+  /auth/code/verify:
+    post:
+      operationId: verifyLoginCode
+      summary: Memeriksa kode masuk lalu memasang cookie sesi
+      description: >-
+        Email yang belum terdaftar langsung dibuatkan akun pembeli. Respons sukses memasang
+        cookie `jdsign_session` (HttpOnly, SameSite=Lax).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyLoginCodeRequest"
+      responses:
+        "200":
+          description: Kode benar dan sesi dibuat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/Error"
+  /auth/google:
+    get:
+      operationId: startGoogleLogin
+      summary: Mengalihkan ke halaman masuk Google (PKCE, state, nonce)
+      parameters:
+        - name: next
+          in: query
+          required: false
+          description: Path tujuan setelah masuk, misalnya /account
+          schema:
+            type: string
+            maxLength: 500
+      responses:
+        "302":
+          $ref: "#/components/responses/Redirect"
+  /auth/google/callback:
+    get:
+      operationId: finishGoogleLogin
+      summary: Menerima jawaban Google, memasang cookie sesi, lalu mengalihkan ke frontend
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "302":
+          $ref: "#/components/responses/Redirect"
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Menghapus sesi saat ini
+      responses:
+        "204":
+          description: Sesi dihapus
+        default:
+          $ref: "#/components/responses/Error"
+  /me:
+    get:
+      operationId: getMe
+      summary: Akun yang sedang masuk
+      responses:
+        "200":
+          description: Akun pengguna
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   responses:
     Error:
@@ -44,6 +164,48 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Belum masuk atau sesi sudah berakhir
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Tindakan tidak diizinkan
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ValidationFailed:
+      description: Isian tidak valid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: Batas laju terlampaui
+      headers:
+        Retry-After:
+          description: Detik sampai boleh mencoba lagi
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ServiceUnavailable:
+      description: Layanan pendukung (misalnya email) sedang gagal
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Redirect:
+      description: Pengalihan
+      headers:
+        Location:
+          required: true
+          schema:
+            type: string
   schemas:
     Health:
       type: object
@@ -94,3 +256,53 @@ components:
               type: object
               additionalProperties:
                 type: string
+    LoginCodeRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          example: nadia@studioarunika.id
+    LoginCodeStatus:
+      type: object
+      required: [email, sent, secondsUntilResend, expiresInSeconds]
+      properties:
+        email:
+          type: string
+          description: Email yang sudah dirapikan (huruf kecil, tanpa spasi)
+        sent:
+          type: boolean
+          description: false jika masih dalam jeda kirim ulang sehingga tidak ada kode baru
+        secondsUntilResend:
+          type: integer
+        expiresInSeconds:
+          type: integer
+          description: Sisa masa berlaku kode yang aktif
+    VerifyLoginCodeRequest:
+      type: object
+      required: [email, code]
+      properties:
+        email:
+          type: string
+        code:
+          type: string
+          example: "482913"
+        remember:
+          type: boolean
+          default: false
+    Account:
+      type: object
+      required: [id, name, email, role, emailVerified]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [buyer, seller, admin]
+        emailVerified:
+          type: boolean

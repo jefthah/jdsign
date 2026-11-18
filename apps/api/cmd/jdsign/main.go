@@ -19,7 +19,9 @@ import (
 
 	"github.com/jefthah/jdsign/apps/api/internal/config"
 	"github.com/jefthah/jdsign/apps/api/internal/database"
+	"github.com/jefthah/jdsign/apps/api/internal/google"
 	"github.com/jefthah/jdsign/apps/api/internal/httpapi"
+	"github.com/jefthah/jdsign/apps/api/internal/mail"
 )
 
 func main() {
@@ -73,7 +75,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddress,
-		Handler:           httpapi.NewHandler(httpapi.NewServer(pool, logger)),
+		Handler:           httpapi.NewHandler(httpapi.NewServer(pool, logger, serverSettings(cfg, logger))),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       60 * time.Second,
 		WriteTimeout:      120 * time.Second,
@@ -100,4 +102,28 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	defer cancel()
 
 	return server.Shutdown(shutdownCtx)
+}
+
+// serverSettings turns the configuration into API settings. Without RESEND_API_KEY, sign-in codes
+// are written to the log instead of being emailed.
+func serverSettings(cfg config.Config, logger *slog.Logger) httpapi.Settings {
+	settings := httpapi.Settings{
+		AppURL:          cfg.AppURL,
+		LoginCodeSecret: cfg.LoginCodeSecret,
+		Mailer:          mail.LogMailer{Logger: logger},
+		Google: google.Config{
+			ClientID:     cfg.GoogleClientID,
+			ClientSecret: cfg.GoogleClientSecret,
+		},
+	}
+	if cfg.ResendAPIKey != "" {
+		settings.Mailer = mail.NewResendMailer(cfg.ResendAPIKey, cfg.MailFrom)
+	} else {
+		logger.Warn("RESEND_API_KEY kosong: kode masuk hanya ditulis ke log, tidak dikirim lewat email")
+	}
+	if !settings.Google.Enabled() {
+		logger.Info("GOOGLE_CLIENT_ID kosong: login Google dinonaktifkan")
+	}
+
+	return settings
 }

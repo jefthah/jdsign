@@ -38,6 +38,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mengirim kode masuk 6 digit ke email
+         * @description Dipakai untuk masuk dan mendaftar. Dalam jeda kirim ulang 60 detik tidak ada kode baru yang dikirim; `sent` bernilai false dan `secondsUntilResend` memberi sisa jedanya.
+         */
+        post: operations["requestLoginCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/code/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Memeriksa kode masuk lalu memasang cookie sesi
+         * @description Email yang belum terdaftar langsung dibuatkan akun pembeli. Respons sukses memasang cookie `jdsign_session` (HttpOnly, SameSite=Lax).
+         */
+        post: operations["verifyLoginCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mengalihkan ke halaman masuk Google (PKCE, state, nonce) */
+        get: operations["startGoogleLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Menerima jawaban Google, memasang cookie sesi, lalu mengalihkan ke frontend */
+        get: operations["finishGoogleLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Menghapus sesi saat ini */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Akun yang sedang masuk */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -68,6 +176,35 @@ export interface components {
                 };
             };
         };
+        LoginCodeRequest: {
+            /** @example nadia@studioarunika.id */
+            email: string;
+        };
+        LoginCodeStatus: {
+            /** @description Email yang sudah dirapikan (huruf kecil, tanpa spasi) */
+            email: string;
+            /** @description false jika masih dalam jeda kirim ulang sehingga tidak ada kode baru */
+            sent: boolean;
+            secondsUntilResend: number;
+            /** @description Sisa masa berlaku kode yang aktif */
+            expiresInSeconds: number;
+        };
+        VerifyLoginCodeRequest: {
+            email: string;
+            /** @example 482913 */
+            code: string;
+            /** @default false */
+            remember: boolean;
+        };
+        Account: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            email: string;
+            /** @enum {string} */
+            role: "buyer" | "seller" | "admin";
+            emailVerified: boolean;
+        };
     };
     responses: {
         /** @description Kesalahan dengan pesan Bahasa Indonesia */
@@ -78,6 +215,61 @@ export interface components {
             content: {
                 "application/json": components["schemas"]["Error"];
             };
+        };
+        /** @description Belum masuk atau sesi sudah berakhir */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Tindakan tidak diizinkan */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Isian tidak valid */
+        ValidationFailed: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Batas laju terlampaui */
+        TooManyRequests: {
+            headers: {
+                /** @description Detik sampai boleh mencoba lagi */
+                "Retry-After"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Layanan pendukung (misalnya email) sedang gagal */
+        ServiceUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Pengalihan */
+        Redirect: {
+            headers: {
+                Location: string;
+                [name: string]: unknown;
+            };
+            content?: never;
         };
     };
     parameters: never;
@@ -134,6 +326,135 @@ export interface operations {
                     "application/json": components["schemas"]["CategoryList"];
                 };
             };
+            default: components["responses"]["Error"];
+        };
+    };
+    requestLoginCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Kode terkirim, atau masih dalam jeda kirim ulang */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginCodeStatus"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ServiceUnavailable"];
+            default: components["responses"]["Error"];
+        };
+    };
+    verifyLoginCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyLoginCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Kode benar dan sesi dibuat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["Error"];
+        };
+    };
+    startGoogleLogin: {
+        parameters: {
+            query?: {
+                /** @description Path tujuan setelah masuk, misalnya /account */
+                next?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            302: components["responses"]["Redirect"];
+        };
+    };
+    finishGoogleLogin: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            302: components["responses"]["Redirect"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sesi dihapus */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Akun pengguna */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             default: components["responses"]["Error"];
         };
     };

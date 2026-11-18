@@ -2,33 +2,98 @@ package httpapi
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/jefthah/jdsign/apps/api/internal/auth"
 	"github.com/jefthah/jdsign/apps/api/internal/database/sqlcdb"
+	"github.com/jefthah/jdsign/apps/api/internal/google"
+	"github.com/jefthah/jdsign/apps/api/internal/mail"
+	"github.com/jefthah/jdsign/apps/api/internal/ratelimit"
 )
 
 const maximumRequestBytes = 1 << 20
 
+// DefaultAppURL is the Next.js development server, used when Settings.AppURL is empty.
+const DefaultAppURL = "http://localhost:3000"
+
+// developmentLoginCodeSecret keys stored codes when no secret is configured (tests and local).
+const developmentLoginCodeSecret = "jdsign-local-development-login-code-secret"
+
+// Settings configures the parts of the API that depend on the environment.
+type Settings struct {
+	// AppURL is the public origin of the site, e.g. https://jd-sign.com. Unsafe requests must
+	// come from it, and sign-in redirects point at it.
+	AppURL string
+	// LoginCodeSecret keys the HMAC of stored sign-in codes.
+	LoginCodeSecret string
+	// Mailer sends sign-in codes. Nil writes them to the log.
+	Mailer mail.Mailer
+	// Google configures "Sign in with Google". An empty ClientID disables it.
+	Google google.Config
+}
+
 // Server implements the operations from api/openapi.yaml on top of PostgreSQL.
 type Server struct {
-	pool    *pgxpool.Pool
-	queries *sqlcdb.Queries
-	logger  *slog.Logger
+	pool          *pgxpool.Pool
+	queries       *sqlcdb.Queries
+	logger        *slog.Logger
+	auth          *auth.Service
+	limiter       *ratelimit.Limiter
+	appURL        string
+	appOrigin     string
+	secureCookies bool
+	google        google.Config
+	stateKey      []byte
 }
 
 var _ StrictServerInterface = (*Server)(nil)
 
 // NewServer creates the API implementation.
-func NewServer(pool *pgxpool.Pool, logger *slog.Logger) *Server {
-	server := &Server{pool: pool, logger: logger}
+func NewServer(pool *pgxpool.Pool, logger *slog.Logger, settings Settings) *Server {
+	appURL := strings.TrimRight(settings.AppURL, "/")
+	parsed, err := url.Parse(appURL)
+	if appURL == "" || err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		appURL = DefaultAppURL
+		parsed, _ = url.Parse(appURL)
+	}
+	secret := settings.LoginCodeSecret
+	if secret == "" {
+		secret = developmentLoginCodeSecret
+	}
+	mailer := settings.Mailer
+	if mailer == nil {
+		mailer = mail.LogMailer{Logger: logger}
+	}
+	googleConfig := settings.Google
+	if googleConfig.RedirectURL == "" {
+		googleConfig.RedirectURL = appURL + "/api/v1/auth/google/callback"
+	}
+	stateKey := hmac.New(sha256.New, []byte(secret))
+	stateKey.Write([]byte("google-oauth-state"))
+
+	server := &Server{
+		pool:          pool,
+		logger:        logger,
+		limiter:       ratelimit.New(),
+		appURL:        appURL,
+		appOrigin:     parsed.Scheme + "://" + parsed.Host,
+		secureCookies: parsed.Scheme == "https",
+		google:        googleConfig,
+		stateKey:      stateKey.Sum(nil),
+	}
 	if pool != nil {
 		server.queries = sqlcdb.New(pool)
+		server.auth = auth.NewService(pool, mailer, []byte(secret))
 	}
 
 	return server
@@ -38,7 +103,7 @@ func NewServer(pool *pgxpool.Pool, logger *slog.Logger) *Server {
 func NewHandler(server *Server) http.Handler {
 	mux := http.NewServeMux()
 
-	strict := NewStrictHandlerWithOptions(server, nil, StrictHTTPServerOptions{
+	strict := NewStrictHandlerWithOptions(server, []StrictMiddlewareFunc{withHTTPExchange}, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			writeError(w, http.StatusBadRequest, "bad_request", "Permintaan tidak valid.")
 		},
@@ -58,7 +123,7 @@ func NewHandler(server *Server) http.Handler {
 		writeError(w, http.StatusNotFound, "not_found", "Halaman API tidak ditemukan.")
 	})
 
-	return withSafeguards(mux, server.logger)
+	return withSafeguards(withSameOrigin(mux, server.appOrigin), server.logger)
 }
 
 // GetHealth reports whether the API can reach the database.

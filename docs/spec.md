@@ -78,6 +78,7 @@ Aturan:
 - Batas laju: kirim kode **6/menit per IP** dan **8/jam per email**; verifikasi **10/menit per IP**.
 - Email kode dikirim **langsung** (bukan lewat antrean), karena pengguna sedang menunggu. Subjek: `123456 adalah kode masuk JD Sign Anda`. Isinya menampilkan kode berformat `123 456` dan masa berlakunya.
 - Jika pengiriman email gagal: "Kode belum bisa dikirim. Coba lagi dalam beberapa saat."
+- Tanpa `RESEND_API_KEY` (lokal dan staging), kode hanya ditulis ke log API dan tidak dikirim. Production wajib mengisinya.
 - Kode benar:
   - Email belum terdaftar → buat akun `buyer`, aktif, `email_verified_at = now()`. Nama diambil dari bagian sebelum `@`: tanda `._-+` menjadi spasi, angka dibuang, kapital di awal kata. Contoh `budi.santoso@mail.com` → "Budi Santoso". Jika hasilnya kosong → "Pengguna JD Sign".
   - Email sudah terdaftar tetapi belum terverifikasi → tandai terverifikasi.
@@ -90,6 +91,8 @@ Aturan:
 - ID token diverifikasi (`iss`, `aud`, `exp`, `nonce`). Wajib `email_verified = true`. Jika tidak: tolak dan arahkan ke halaman login dengan pesan.
 - Urutan pencocokan: `google_sub` → email (lalu simpan `google_sub`) → buat akun `buyer` baru seperti OTP.
 - Callback memasang cookie sesi langsung, lalu redirect ke frontend. Versi lama menukar kode lewat URL karena frontend dan API beda domain; itu tidak diperlukan lagi.
+- Sesi dari Google memakai masa tidak aktif 30 hari, sama seperti "ingat saya".
+- Login Google nonaktif sampai `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET` diisi; tombolnya lalu kembali ke `/login?error=google_unavailable`.
 - `state` atau `nonce` tidak cocok, login dibatalkan, atau akun nonaktif → redirect ke `/login?error=...` dengan pesan Bahasa Indonesia.
 
 ### 4.3 Sesi

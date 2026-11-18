@@ -9,9 +9,33 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+
+	"github.com/oapi-codegen/runtime"
 )
+
+// Defines values for AccountRole.
+const (
+	Admin  AccountRole = "admin"
+	Buyer  AccountRole = "buyer"
+	Seller AccountRole = "seller"
+)
+
+// Valid indicates whether the value is a known member of the AccountRole enum.
+func (e AccountRole) Valid() bool {
+	switch e {
+	case Admin:
+		return true
+	case Buyer:
+		return true
+	case Seller:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for HealthDatabase.
 const (
@@ -49,6 +73,18 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
+// Account defines model for Account.
+type Account struct {
+	Email         string      `json:"email"`
+	EmailVerified bool        `json:"emailVerified"`
+	Id            int64       `json:"id"`
+	Name          string      `json:"name"`
+	Role          AccountRole `json:"role"`
+}
+
+// AccountRole defines model for Account.Role.
+type AccountRole string
+
 // Category defines model for Category.
 type Category struct {
 	Description *string `json:"description,omitempty"`
@@ -84,14 +120,93 @@ type HealthDatabase string
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// LoginCodeRequest defines model for LoginCodeRequest.
+type LoginCodeRequest struct {
+	// Email Example: nadia@studioarunika.id
+	Email string `json:"email"`
+}
+
+// LoginCodeStatus defines model for LoginCodeStatus.
+type LoginCodeStatus struct {
+	// Email Email yang sudah dirapikan (huruf kecil, tanpa spasi)
+	Email string `json:"email"`
+
+	// ExpiresInSeconds Sisa masa berlaku kode yang aktif
+	ExpiresInSeconds   int `json:"expiresInSeconds"`
+	SecondsUntilResend int `json:"secondsUntilResend"`
+
+	// Sent false jika masih dalam jeda kirim ulang sehingga tidak ada kode baru
+	Sent bool `json:"sent"`
+}
+
+// VerifyLoginCodeRequest defines model for VerifyLoginCodeRequest.
+type VerifyLoginCodeRequest struct {
+	// Code Example: 482913
+	Code     string `json:"code"`
+	Email    string `json:"email"`
+	Remember *bool  `json:"remember,omitempty"`
+}
+
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
+// ServiceUnavailable defines model for ServiceUnavailable.
+type ServiceUnavailable = Error
+
+// TooManyRequests defines model for TooManyRequests.
+type TooManyRequests = Error
+
+// Unauthorized defines model for Unauthorized.
+type Unauthorized = Error
+
+// ValidationFailed defines model for ValidationFailed.
+type ValidationFailed = Error
+
+// StartGoogleLoginParams defines parameters for StartGoogleLogin.
+type StartGoogleLoginParams struct {
+	// Next Path tujuan setelah masuk, misalnya /account
+	Next *string `form:"next,omitempty" json:"next,omitempty"`
+}
+
+// FinishGoogleLoginParams defines parameters for FinishGoogleLogin.
+type FinishGoogleLoginParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
+// RequestLoginCodeJSONRequestBody defines body for RequestLoginCode for application/json ContentType.
+type RequestLoginCodeJSONRequestBody = LoginCodeRequest
+
+// VerifyLoginCodeJSONRequestBody defines body for VerifyLoginCode for application/json ContentType.
+type VerifyLoginCodeJSONRequestBody = VerifyLoginCodeRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// RequestLoginCode Mengirim kode masuk 6 digit ke email
+	// (POST /auth/code)
+	RequestLoginCode(w http.ResponseWriter, r *http.Request)
+	// VerifyLoginCode Memeriksa kode masuk lalu memasang cookie sesi
+	// (POST /auth/code/verify)
+	VerifyLoginCode(w http.ResponseWriter, r *http.Request)
+	// StartGoogleLogin Mengalihkan ke halaman masuk Google (PKCE, state, nonce)
+	// (GET /auth/google)
+	StartGoogleLogin(w http.ResponseWriter, r *http.Request, params StartGoogleLoginParams)
+	// FinishGoogleLogin Menerima jawaban Google, memasang cookie sesi, lalu mengalihkan ke frontend
+	// (GET /auth/google/callback)
+	FinishGoogleLogin(w http.ResponseWriter, r *http.Request, params FinishGoogleLoginParams)
+	// Logout Menghapus sesi saat ini
+	// (POST /auth/logout)
+	Logout(w http.ResponseWriter, r *http.Request)
 	// ListCategories Daftar kategori, urut nama
 	// (GET /categories)
 	ListCategories(w http.ResponseWriter, r *http.Request)
 	// GetHealth Memeriksa proses API dan koneksi database
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// GetMe Akun yang sedang masuk
+	// (GET /me)
+	GetMe(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -102,6 +217,140 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// RequestLoginCode operation middleware
+func (siw *ServerInterfaceWrapper) RequestLoginCode(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestLoginCode(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// VerifyLoginCode operation middleware
+func (siw *ServerInterfaceWrapper) VerifyLoginCode(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyLoginCode(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartGoogleLogin operation middleware
+func (siw *ServerInterfaceWrapper) StartGoogleLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartGoogleLoginParams
+
+	// ------------- Optional query parameter "next" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "next", r.URL.Query(), &params.Next, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "next"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "next", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartGoogleLogin(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FinishGoogleLogin operation middleware
+func (siw *ServerInterfaceWrapper) FinishGoogleLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FinishGoogleLoginParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishGoogleLogin(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ListCategories operation middleware
 func (siw *ServerInterfaceWrapper) ListCategories(w http.ResponseWriter, r *http.Request) {
@@ -122,6 +371,20 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMe(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -253,11 +516,287 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/health", wrapper.GetHealth)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/categories", wrapper.ListCategories)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/code", wrapper.RequestLoginCode)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/code/verify", wrapper.VerifyLoginCode)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/google", wrapper.StartGoogleLogin)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/google/callback", wrapper.FinishGoogleLogin)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me", wrapper.GetMe)
 
 	return m
 }
 
 type ErrorJSONResponse Error
+
+type ForbiddenJSONResponse Error
+
+type RedirectResponseHeaders struct {
+	Location string
+}
+type RedirectResponse struct {
+	Headers RedirectResponseHeaders
+}
+
+type ServiceUnavailableJSONResponse Error
+
+type TooManyRequestsResponseHeaders struct {
+	RetryAfter *int
+}
+type TooManyRequestsJSONResponse struct {
+	Body Error
+
+	Headers TooManyRequestsResponseHeaders
+}
+
+type UnauthorizedJSONResponse Error
+
+type ValidationFailedJSONResponse Error
+
+type RequestLoginCodeRequestObject struct {
+	Body *RequestLoginCodeJSONRequestBody
+}
+
+type RequestLoginCodeResponseObject interface {
+	VisitRequestLoginCodeResponse(w http.ResponseWriter) error
+}
+
+type RequestLoginCode200JSONResponse LoginCodeStatus
+
+func (response RequestLoginCode200JSONResponse) VisitRequestLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestLoginCode403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RequestLoginCode403JSONResponse) VisitRequestLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestLoginCode422JSONResponse struct{ ValidationFailedJSONResponse }
+
+func (response RequestLoginCode422JSONResponse) VisitRequestLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestLoginCode429JSONResponse struct{ TooManyRequestsJSONResponse }
+
+func (response RequestLoginCode429JSONResponse) VisitRequestLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestLoginCode503JSONResponse struct{ ServiceUnavailableJSONResponse }
+
+func (response RequestLoginCode503JSONResponse) VisitRequestLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestLoginCodedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RequestLoginCodedefaultJSONResponse) VisitRequestLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyLoginCodeRequestObject struct {
+	Body *VerifyLoginCodeJSONRequestBody
+}
+
+type VerifyLoginCodeResponseObject interface {
+	VisitVerifyLoginCodeResponse(w http.ResponseWriter) error
+}
+
+type VerifyLoginCode200JSONResponse Account
+
+func (response VerifyLoginCode200JSONResponse) VisitVerifyLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyLoginCode403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response VerifyLoginCode403JSONResponse) VisitVerifyLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyLoginCode422JSONResponse struct{ ValidationFailedJSONResponse }
+
+func (response VerifyLoginCode422JSONResponse) VisitVerifyLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyLoginCode429JSONResponse struct{ TooManyRequestsJSONResponse }
+
+func (response VerifyLoginCode429JSONResponse) VisitVerifyLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyLoginCodedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response VerifyLoginCodedefaultJSONResponse) VisitVerifyLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartGoogleLoginRequestObject struct {
+	Params StartGoogleLoginParams
+}
+
+type StartGoogleLoginResponseObject interface {
+	VisitStartGoogleLoginResponse(w http.ResponseWriter) error
+}
+
+type StartGoogleLogin302Response = RedirectResponse
+
+func (response StartGoogleLogin302Response) VisitStartGoogleLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(302)
+	return nil
+}
+
+type FinishGoogleLoginRequestObject struct {
+	Params FinishGoogleLoginParams
+}
+
+type FinishGoogleLoginResponseObject interface {
+	VisitFinishGoogleLoginResponse(w http.ResponseWriter) error
+}
+
+type FinishGoogleLogin302Response = RedirectResponse
+
+func (response FinishGoogleLogin302Response) VisitFinishGoogleLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(302)
+	return nil
+}
+
+type LogoutRequestObject struct {
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout204Response struct {
+}
+
+func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type LogoutdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response LogoutdefaultJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type ListCategoriesRequestObject struct {
 }
@@ -332,14 +871,84 @@ func (response GetHealth503JSONResponse) VisitGetHealthResponse(w http.ResponseW
 	return err
 }
 
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(w http.ResponseWriter) error
+}
+
+type GetMe200JSONResponse Account
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMe401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetMedefaultJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// RequestLoginCode Mengirim kode masuk 6 digit ke email
+	// (POST /auth/code)
+	RequestLoginCode(ctx context.Context, request RequestLoginCodeRequestObject) (RequestLoginCodeResponseObject, error)
+	// VerifyLoginCode Memeriksa kode masuk lalu memasang cookie sesi
+	// (POST /auth/code/verify)
+	VerifyLoginCode(ctx context.Context, request VerifyLoginCodeRequestObject) (VerifyLoginCodeResponseObject, error)
+	// StartGoogleLogin Mengalihkan ke halaman masuk Google (PKCE, state, nonce)
+	// (GET /auth/google)
+	StartGoogleLogin(ctx context.Context, request StartGoogleLoginRequestObject) (StartGoogleLoginResponseObject, error)
+	// FinishGoogleLogin Menerima jawaban Google, memasang cookie sesi, lalu mengalihkan ke frontend
+	// (GET /auth/google/callback)
+	FinishGoogleLogin(ctx context.Context, request FinishGoogleLoginRequestObject) (FinishGoogleLoginResponseObject, error)
+	// Logout Menghapus sesi saat ini
+	// (POST /auth/logout)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
 	// ListCategories Daftar kategori, urut nama
 	// (GET /categories)
 	ListCategories(ctx context.Context, request ListCategoriesRequestObject) (ListCategoriesResponseObject, error)
 	// GetHealth Memeriksa proses API dan koneksi database
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
+	// GetMe Akun yang sedang masuk
+	// (GET /me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -379,6 +988,144 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// RequestLoginCode operation middleware
+func (sh *strictHandler) RequestLoginCode(w http.ResponseWriter, r *http.Request) {
+	var request RequestLoginCodeRequestObject
+
+	var body RequestLoginCodeJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RequestLoginCode(ctx, request.(RequestLoginCodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RequestLoginCode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RequestLoginCodeResponseObject); ok {
+		if err := validResponse.VisitRequestLoginCodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// VerifyLoginCode operation middleware
+func (sh *strictHandler) VerifyLoginCode(w http.ResponseWriter, r *http.Request) {
+	var request VerifyLoginCodeRequestObject
+
+	var body VerifyLoginCodeJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.VerifyLoginCode(ctx, request.(VerifyLoginCodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "VerifyLoginCode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(VerifyLoginCodeResponseObject); ok {
+		if err := validResponse.VisitVerifyLoginCodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartGoogleLogin operation middleware
+func (sh *strictHandler) StartGoogleLogin(w http.ResponseWriter, r *http.Request, params StartGoogleLoginParams) {
+	var request StartGoogleLoginRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartGoogleLogin(ctx, request.(StartGoogleLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartGoogleLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartGoogleLoginResponseObject); ok {
+		if err := validResponse.VisitStartGoogleLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishGoogleLogin operation middleware
+func (sh *strictHandler) FinishGoogleLogin(w http.ResponseWriter, r *http.Request, params FinishGoogleLoginParams) {
+	var request FinishGoogleLoginRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishGoogleLogin(ctx, request.(FinishGoogleLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishGoogleLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishGoogleLoginResponseObject); ok {
+		if err := validResponse.VisitFinishGoogleLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Logout operation middleware
+func (sh *strictHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var request LogoutRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx, request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		if err := validResponse.VisitLogoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // ListCategories operation middleware
@@ -422,6 +1169,30 @@ func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetHealthResponseObject); ok {
 		if err := validResponse.VisitGetHealthResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	var request GetMeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx, request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		if err := validResponse.VisitGetMeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

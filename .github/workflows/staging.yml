@@ -58,8 +58,9 @@ jobs:
           npm run build
       - name: Validate deployment scripts
         run: |
-          bash -n deploy/bootstrap-staging.sh deploy/deploy-staging.sh deploy/receive.sh
-          POSTGRES_PASSWORD=validation RELEASE_SHA=${GITHUB_SHA} docker compose -f compose.staging.yml config --quiet
+          bash -n deploy/bootstrap-staging.sh deploy/apply-staging-config.sh deploy/deploy-staging.sh deploy/receive.sh
+          POSTGRES_PASSWORD=validation LOGIN_CODE_SECRET=validation RELEASE_SHA=${GITHUB_SHA} \
+            docker compose -f compose.staging.yml config --quiet
       - name: Build API binary
         working-directory: apps/api
         env:

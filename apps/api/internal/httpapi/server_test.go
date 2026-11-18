@@ -15,7 +15,7 @@ import (
 func TestHealthReportsReadyDatabase(t *testing.T) {
 	pool := testdb.New(t)
 
-	response := request(t, httpapi.NewServer(pool, quietLogger()), "/api/v1/health")
+	response := request(t, httpapi.NewServer(pool, quietLogger(), httpapi.Settings{}), "/api/v1/health")
 
 	assertStatus(t, response, http.StatusOK)
 	var body httpapi.Health
@@ -29,7 +29,7 @@ func TestHealthReportsUnavailableDatabase(t *testing.T) {
 	pool := testdb.New(t)
 	pool.Close()
 
-	response := request(t, httpapi.NewServer(pool, quietLogger()), "/api/v1/health")
+	response := request(t, httpapi.NewServer(pool, quietLogger(), httpapi.Settings{}), "/api/v1/health")
 
 	assertStatus(t, response, http.StatusServiceUnavailable)
 	var body httpapi.Health
@@ -42,7 +42,7 @@ func TestHealthReportsUnavailableDatabase(t *testing.T) {
 func TestCategoriesAreSeededAndSortedByName(t *testing.T) {
 	pool := testdb.New(t)
 
-	response := request(t, httpapi.NewServer(pool, quietLogger()), "/api/v1/categories")
+	response := request(t, httpapi.NewServer(pool, quietLogger(), httpapi.Settings{}), "/api/v1/categories")
 
 	assertStatus(t, response, http.StatusOK)
 	var body httpapi.CategoryList
@@ -59,7 +59,7 @@ func TestCategoriesAreSeededAndSortedByName(t *testing.T) {
 }
 
 func TestUnknownAPIPathReturnsJSONNotFound(t *testing.T) {
-	response := request(t, httpapi.NewServer(nil, quietLogger()), "/api/v1/does-not-exist")
+	response := request(t, httpapi.NewServer(nil, quietLogger(), httpapi.Settings{}), "/api/v1/does-not-exist")
 
 	assertStatus(t, response, http.StatusNotFound)
 	if contentType := response.Header.Get("Content-Type"); contentType != "application/json" {

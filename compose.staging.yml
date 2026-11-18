@@ -36,6 +36,14 @@ services:
       APP_ENV: staging
       HTTP_ADDR: 0.0.0.0:8300
       DATABASE_URL: postgres://jdsign:${POSTGRES_PASSWORD:?required}@postgres:5432/jdsign?sslmode=disable
+      APP_URL: https://staging.jd-sign.com
+      LOGIN_CODE_SECRET: ${LOGIN_CODE_SECRET:?required}
+      # Optional. Without RESEND_API_KEY, login codes are written to the API log only.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      # Optional. Google sign-in stays off until both are set.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOMEMLIMIT: 192MiB
     ports: ["127.0.0.1:18300:8300"]
     networks: [database, frontend]

@@ -11,10 +11,7 @@ root=/opt/jdsign/staging
 if ! id jdsign >/dev/null 2>&1; then useradd --create-home --shell /bin/bash jdsign; fi
 install -d -m 755 /opt/jdsign "$root"
 install -d -m 700 "$root/incoming" "$root/backups"
-if [[ ! -f "$root/.env" ]]; then
-    (umask 077; printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 32)" > "$root/.env")
-fi
-install -m 644 "$src/compose.staging.yml" "$root/compose.yml"
+bash "$src/deploy/apply-staging-config.sh"
 install -m 755 "$src/deploy/deploy-staging.sh" /usr/local/sbin/jdsign-staging-deploy
 install -d -m 755 /usr/local/libexec
 install -m 755 "$src/deploy/receive.sh" /usr/local/libexec/jdsign-staging-receive

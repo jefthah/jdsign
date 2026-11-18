@@ -164,7 +164,7 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [motionPaused, setMotionPaused] = useState(false);
   const [selected, setSelected] = useState<Template | null>(null);
-  const [info, setInfo] = useState<"account" | "seller" | "license" | null>(
+  const [info, setInfo] = useState<"seller" | "license" | null>(
     null,
   );
   const [openStep, setOpenStep] = useState<number | null>(null);
@@ -260,9 +260,9 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
               </a>
             </nav>
             <div className="header-actions">
-              <button className="login-link" onClick={() => setInfo("account")}>
+              <a className="login-link" href="/login">
                 Masuk <Arrow diagonal />
-              </button>
+              </a>
               <a className="button button-lime button-small" href="#koleksi">
                 Jelajahi koleksi <Arrow />
               </a>
@@ -304,14 +304,9 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
                     <Arrow diagonal />
                   </a>
                 ))}
-                <button
-                  onClick={() => {
-                    setInfo("account");
-                    setMobileOpen(false);
-                  }}
-                >
+                <a href="/login" onClick={() => setMobileOpen(false)}>
                   Masuk <Arrow diagonal />
-                </button>
+                </a>
               </nav>
             )}
           </header>
@@ -867,9 +862,9 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
                 </div>
                 <div>
                   <span>TERHUBUNG</span>
-                  <button onClick={() => setInfo("account")}>
+                  <a href="/account">
                     Akun Anda <Arrow diagonal />
-                  </button>
+                  </a>
                   <a href="#koleksi">
                     Cari inspirasi <Arrow diagonal />
                   </a>
@@ -973,18 +968,14 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
         <Spark />
         <span className="section-eyebrow">JD SIGN · LANGKAH BERIKUTNYA</span>
         <h2 id="info-title">
-          {info === "account"
-            ? "Ruang Anda, segera hadir."
-            : info === "seller"
-              ? "Punya karya untuk dibagikan?"
-              : "Karya Anda. Dengan batas yang jelas."}
+          {info === "seller"
+            ? "Punya karya untuk dibagikan?"
+            : "Karya Anda. Dengan batas yang jelas."}
         </h2>
         <p>
-          {info === "account"
-            ? "Fitur akun dan pembelian sedang disiapkan. Untuk saat ini, Anda bisa menjelajahi contoh desain dan menemukan arah website berikutnya."
-            : info === "seller"
-              ? "JD Sign sedang menyiapkan ruang bagi kreator untuk membuka toko dan membagikan template website. Pendaftaran penjual belum dibuka pada pratinjau ini."
-              : "Setiap template akan memiliki ketentuan lisensi pada halaman produknya. Periksa hak penggunaan, jumlah proyek, dan aturan distribusi sebelum membeli. Koleksi saat ini adalah contoh desain."}
+          {info === "seller"
+            ? "JD Sign sedang menyiapkan ruang bagi kreator untuk membuka toko dan membagikan template website. Pendaftaran penjual belum dibuka pada pratinjau ini."
+            : "Setiap template akan memiliki ketentuan lisensi pada halaman produknya. Periksa hak penggunaan, jumlah proyek, dan aturan distribusi sebelum membeli. Koleksi saat ini adalah contoh desain."}
         </p>
         <button
           className="button button-dark"
