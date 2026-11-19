@@ -8,7 +8,7 @@ import { defaultNextPath, safeNextPath } from "@/lib/auth/paths";
 
 import type { AuthVariant } from "./auth-shell";
 import { styles } from "./auth-styles";
-import { ArrowRightIcon, GoogleIcon, MailIcon } from "./icons";
+import { ArrowLeftIcon, ArrowRightIcon, GoogleIcon, MailIcon } from "./icons";
 import { OtpInput } from "./otp-input";
 
 type Step = "email" | "code";
@@ -22,15 +22,15 @@ const storageKey = "jdsign:pending-login-code";
 const copy = {
   login: {
     title: "Masuk ke JD Sign",
-    lead: "Masukkan email akun Anda. Kami kirim kode 6 digit untuk masuk, tanpa kata sandi.",
+    lead: "Selamat datang kembali. Masuk dengan Google, atau dengan kode yang kami kirim ke email Anda.",
     hint: "Kode berlaku 10 menit dan hanya bisa dipakai sekali.",
     submit: "Kirim kode masuk",
-    google: "Lanjut dengan Google",
+    google: "Masuk dengan Google",
     legal: "Dengan melanjutkan",
   },
   register: {
     title: "Buat akun JD Sign",
-    lead: "Cukup email, tanpa kata sandi. Kami kirim kode 6 digit untuk memastikan email itu milik Anda.",
+    lead: "Daftar dengan Google, atau cukup pakai email. Tanpa kata sandi, kami kirim kode 6 digit untuk verifikasi.",
     hint: "Akun langsung aktif setelah kode diverifikasi.",
     submit: "Kirim kode verifikasi",
     google: "Daftar dengan Google",
@@ -186,14 +186,17 @@ export function EmailCodeFlow({ variant }: { variant: AuthVariant }) {
   if (step === "code" && pending) {
     return (
       <div className={styles.column}>
-        <Stepper step="code" />
+        <button type="button" className={styles.back} onClick={changeEmail}>
+          <ArrowLeftIcon />
+          Ganti email
+        </button>
         <div className={styles.heading}>
+          <span className={styles.headingIcon}>
+            <MailIcon />
+          </span>
           <h1 className={styles.title}>Cek email Anda</h1>
           <p className={styles.lead}>
-            Kode 6 digit sudah dikirim ke <strong>{pending.email}</strong>.{" "}
-            <button type="button" className={styles.textButton} onClick={changeEmail}>
-              Ganti email
-            </button>
+            Masukkan kode 6 digit yang kami kirim ke <strong>{pending.email}</strong>.
           </p>
         </div>
 
@@ -237,7 +240,7 @@ export function EmailCodeFlow({ variant }: { variant: AuthVariant }) {
 
         <div className={styles.resend}>
           <p className={styles.resendRow}>
-            <span>Belum menerima kode?</span>
+            <span>Belum menerima kode?</span>{" "}
             {secondsUntilResend > 0 ? (
               <span className={styles.resendWait}>
                 Kirim ulang dalam <span className={styles.countdown}>{formatSeconds(secondsUntilResend)}</span>
@@ -315,7 +318,6 @@ function EmailStep({
 
   return (
     <div className={styles.column}>
-      <Stepper step="email" />
       <div className={styles.heading}>
         <h1 className={styles.title}>{text.title}</h1>
         <p className={styles.lead}>{text.lead}</p>
@@ -323,51 +325,53 @@ function EmailStep({
 
       {notice && <NoticeBanner notice={notice} />}
 
-      <form className={styles.form} onSubmit={onSubmit} noValidate>
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor="email">
-            Email
-          </label>
-          <div className={`${styles.inputWrap} ${emailError ? styles.invalid : ""}`}>
-            <MailIcon />
-            <input
-              id="email"
-              name="email"
-              className={styles.input}
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              autoCapitalize="none"
-              spellCheck={false}
-              placeholder="nama@email.com"
-              maxLength={255}
-              required
-              autoFocus
-              value={email}
-              onChange={(event) => onEmailChange(event.target.value)}
-              aria-invalid={emailError !== null}
-              aria-describedby={emailError ? "email-error" : "email-hint"}
-            />
+      <div className={styles.methods}>
+        <a className={styles.google} href={`/api/v1/auth/google?next=${encodeURIComponent(next)}`}>
+          <GoogleIcon />
+          {text.google}
+        </a>
+
+        <div className={styles.divider}>atau dengan email</div>
+
+        <form className={styles.form} onSubmit={onSubmit} noValidate>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="email">
+              Alamat email
+            </label>
+            <div className={`${styles.inputWrap} ${emailError ? styles.invalid : ""}`}>
+              <MailIcon />
+              <input
+                id="email"
+                name="email"
+                className={styles.input}
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                spellCheck={false}
+                placeholder="nama@email.com"
+                maxLength={255}
+                required
+                autoFocus
+                value={email}
+                onChange={(event) => onEmailChange(event.target.value)}
+                aria-invalid={emailError !== null}
+                aria-describedby={emailError ? "email-error" : "email-hint"}
+              />
+            </div>
+            {emailError ? (
+              <p id="email-error" className={styles.error} role="alert">
+                {emailError}
+              </p>
+            ) : (
+              <p id="email-hint" className={styles.hint}>
+                {text.hint}
+              </p>
+            )}
           </div>
-          {emailError ? (
-            <p id="email-error" className={styles.error} role="alert">
-              {emailError}
-            </p>
-          ) : (
-            <p id="email-hint" className={styles.hint}>
-              {text.hint}
-            </p>
-          )}
-        </div>
-        <SubmitButton busy={busy} label={text.submit} busyLabel="Mengirim kode…" />
-      </form>
-
-      <div className={styles.divider}>atau</div>
-
-      <a className={styles.google} href={`/api/v1/auth/google?next=${encodeURIComponent(next)}`}>
-        <GoogleIcon />
-        {text.google}
-      </a>
+          <SubmitButton busy={busy} label={text.submit} busyLabel="Mengirim kode…" />
+        </form>
+      </div>
 
       <p className={styles.legal}>
         {text.legal}, Anda menyetujui <strong>Syarat Layanan</strong> dan <strong>Kebijakan Privasi</strong> JD Sign.
@@ -376,37 +380,12 @@ function EmailStep({
   );
 }
 
-function Stepper({ step }: { step: Step }) {
-  const onCode = step === "code";
-
-  return (
-    <ol className={styles.stepper} aria-label="Langkah masuk">
-      <li className={`${styles.step} ${onCode ? styles.stepDone : styles.stepActive}`} aria-current={onCode ? undefined : "step"}>
-        <span className={styles.stepDot}>{onCode ? <CheckMark /> : "1"}</span>
-        Email
-      </li>
-      <li aria-hidden="true" className={`${styles.stepConnector} ${onCode ? styles.stepConnectorDone : ""}`} />
-      <li className={`${styles.step} ${onCode ? styles.stepActive : ""}`} aria-current={onCode ? "step" : undefined}>
-        <span className={styles.stepDot}>2</span>
-        Kode verifikasi
-      </li>
-    </ol>
-  );
-}
-
-function CheckMark() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-label="selesai">
-      <path d="M2 7.5 5.5 11 12 3.5" />
-    </svg>
-  );
-}
-
 function SubmitButton({ busy, label, busyLabel }: { busy: boolean; label: string; busyLabel: string }) {
   return (
     <button type="submit" className={styles.primary} disabled={busy} aria-busy={busy}>
+      {busy && <span className={styles.spinner} aria-hidden="true" />}
       <span>{busy ? busyLabel : label}</span>
-      <span className={styles.arrowBadge}>{busy ? <span className={styles.spinner} /> : <ArrowRightIcon />}</span>
+      {!busy && <ArrowRightIcon />}
     </button>
   );
 }

@@ -1,6 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { TemplatePreview } from "@/components/landing/template-preview";
+import { templates, type Template } from "@/components/landing/templates";
+
 import { styles } from "./auth-styles";
 import { CheckIcon } from "./icons";
 
@@ -14,8 +17,6 @@ const panelCopy = {
       </>
     ),
     lead: "Satu akun untuk membeli, mengunduh file sumber, dan menyimpan template favorit Anda.",
-    subject: "Kode masuk JD Sign Anda",
-    body: "Kode berlaku 10 menit dan hanya bisa dipakai sekali. Jangan bagikan kode ini kepada siapa pun, termasuk tim JD Sign.",
     perks: ["Tanpa kata sandi", "Bayar lewat QRIS", "Unduh ulang kapan saja"],
   },
   register: {
@@ -25,8 +26,6 @@ const panelCopy = {
       </>
     ),
     lead: "Mulai sebagai pembeli. Saat siap, buka toko sendiri dan terima 90% dari setiap penjualan.",
-    subject: "Verifikasi email Anda",
-    body: "Masukkan kode ini untuk menyelesaikan pendaftaran. Berlaku 10 menit dan hanya bisa dipakai sekali.",
     perks: ["Gratis mendaftar", "Tanpa kata sandi", "Bisa buka toko kapan saja"],
   },
 } as const;
@@ -40,7 +39,7 @@ export function Wordmark() {
   );
 }
 
-/** Split layout shared by the sign-in and sign-up pages: form on the left, brand panel on the right. */
+/** Split layout shared by the sign-in and sign-up pages: form on the left, template showcase on the right. */
 export function AuthShell({ variant, children }: { variant: AuthVariant; children: ReactNode }) {
   const isLogin = variant === "login";
 
@@ -49,12 +48,12 @@ export function AuthShell({ variant, children }: { variant: AuthVariant; childre
       <div className={styles.pane}>
         <header className={styles.topbar}>
           <Wordmark />
-          <div className={styles.switch}>
+          <p className={styles.switch}>
             <span className={styles.switchPrompt}>{isLogin ? "Belum punya akun?" : "Sudah punya akun?"}</span>
-            <Link className={styles.pillLink} href={isLogin ? "/register" : "/login"}>
+            <Link className={styles.switchLink} href={isLogin ? "/register" : "/login"}>
               {isLogin ? "Daftar" : "Masuk"}
             </Link>
-          </div>
+          </p>
         </header>
 
         <main className={styles.main}>{children}</main>
@@ -74,12 +73,35 @@ export function AuthShell({ variant, children }: { variant: AuthVariant; childre
   );
 }
 
+// Three columns of illustrative previews; each column repeats its cards so the scroll loops seamlessly.
+const columns: Template[][] = [
+  [templates[0], templates[3], templates[5]],
+  [templates[2], templates[4], templates[1]],
+  [templates[1], templates[5], templates[0]],
+];
+
 function BrandPanel({ variant }: { variant: AuthVariant }) {
   const copy = panelCopy[variant];
 
   return (
     <aside className={styles.panel} aria-label="Tentang JD Sign">
-      <span className={styles.panelGlow} aria-hidden="true" />
+      <div className={styles.wall} aria-hidden="true">
+        {columns.map((column, index) => (
+          <div className={styles.wallColumn} key={index}>
+            <div className={styles.wallTrack}>
+              {[...column, ...column].map((template, position) => (
+                <div className={styles.wallCard} key={`${template.id}-${position}`}>
+                  <TemplatePreview template={template} />
+                  <span className={styles.wallLabel}>
+                    {template.name} · {template.categoryLabel}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className={styles.panelCopy}>
         <span className={styles.badge}>
           <span className={styles.badgeDot} aria-hidden="true" />
@@ -87,42 +109,17 @@ function BrandPanel({ variant }: { variant: AuthVariant }) {
         </span>
         <h2 className={styles.panelTitle}>{copy.title}</h2>
         <p className={styles.panelLead}>{copy.lead}</p>
+        <ul className={styles.perks}>
+          {copy.perks.map((perk) => (
+            <li key={perk}>
+              <span className={styles.perkCheck}>
+                <CheckIcon size={12} />
+              </span>
+              {perk}
+            </li>
+          ))}
+        </ul>
       </div>
-
-      <div className={styles.preview} aria-hidden="true">
-        <span className={styles.toast}>
-          <span className={styles.toastCheck}>
-            <CheckIcon />
-          </span>
-          Kode terkirim dalam hitungan detik
-        </span>
-        <div className={styles.mailCard}>
-          <div className={styles.sender}>
-            <span className={styles.senderTile}>JD</span>
-            <span>
-              <span className={styles.senderName}>JD Sign</span>
-              <span className={styles.senderMeta}>hello@jd-sign.com · baru saja</span>
-            </span>
-          </div>
-          <p className={styles.subject}>{copy.subject}</p>
-          <div className={styles.sampleCode}>
-            <span className={styles.sampleDigit} />
-            <span className={styles.sampleDigit} />
-            <span className={styles.sampleDigit} />
-            <span className={styles.sampleSeparator} />
-            <span className={styles.sampleDigit} />
-            <span className={styles.sampleDigit} />
-            <span className={styles.sampleDigit} />
-          </div>
-          <p className={styles.mailBody}>{copy.body}</p>
-        </div>
-      </div>
-
-      <ul className={styles.perks}>
-        {copy.perks.map((perk) => (
-          <li key={perk}>{perk}</li>
-        ))}
-      </ul>
     </aside>
   );
 }
