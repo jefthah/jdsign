@@ -2,9 +2,6 @@ import "./auth.css";
 
 /** Class names from auth.css, which is a global stylesheet with an auth- prefix. */
 export const styles = {
-  accountFacts: "auth-account-facts",
-  accountMain: "auth-account-main",
-  accountPage: "auth-account-page",
   arrowBadge: "auth-arrow-badge",
   badge: "auth-badge",
   badgeDot: "auth-badge-dot",
@@ -15,10 +12,8 @@ export const styles = {
   countdown: "auth-countdown",
   divider: "auth-divider",
   error: "auth-error",
-  eyebrow: "auth-eyebrow",
   field: "auth-field",
   form: "auth-form",
-  ghostButton: "auth-ghost-button",
   google: "auth-google",
   heading: "auth-heading",
   hint: "auth-hint",
@@ -64,9 +59,7 @@ export const styles = {
   senderMeta: "auth-sender-meta",
   senderName: "auth-sender-name",
   senderTile: "auth-sender-tile",
-  skeleton: "auth-skeleton",
   spinner: "auth-spinner",
-  statusPill: "auth-status-pill",
   step: "auth-step",
   stepActive: "auth-step-active",
   stepConnector: "auth-step-connector",

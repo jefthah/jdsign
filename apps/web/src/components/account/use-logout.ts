@@ -5,9 +5,8 @@ import { useState } from "react";
 
 import { browserApi } from "@/lib/api/browser";
 
-import { styles } from "./auth-styles";
-
-export function LogoutButton() {
+/** Ends the session, then goes to the home page so every server-rendered header drops the account. */
+export function useLogout() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -16,14 +15,10 @@ export function LogoutButton() {
     try {
       await browserApi.POST("/auth/logout");
     } finally {
-      router.replace("/login");
+      router.replace("/");
       router.refresh();
     }
   }
 
-  return (
-    <button type="button" className={styles.ghostButton} onClick={() => void logout()} disabled={busy}>
-      {busy ? "Keluar…" : "Keluar"}
-    </button>
-  );
+  return { busy, logout: () => void logout() };
 }

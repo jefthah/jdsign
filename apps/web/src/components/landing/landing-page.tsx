@@ -157,7 +157,34 @@ const steps = [
   },
 ];
 
-export function LandingPage({ categories }: { categories: ReactNode }) {
+/** Header link for signed-out visitors; page.tsx swaps it for the account menu after login. */
+export function LoginLink() {
+  return (
+    <a className="login-link" href="/login">
+      Masuk <Arrow diagonal />
+    </a>
+  );
+}
+
+/** Last row of the phone menu: "Masuk", or "Akun saya" once signed in. */
+export function MobileAccountLink({ signedIn }: { signedIn: boolean }) {
+  return (
+    <a href={signedIn ? "/account" : "/login"}>
+      {signedIn ? "Akun saya" : "Masuk"} <Arrow diagonal />
+    </a>
+  );
+}
+
+export function LandingPage({
+  categories,
+  account,
+  mobileAccount,
+}: {
+  categories: ReactNode;
+  /** Header slot: LoginLink or the account menu. */
+  account: ReactNode;
+  mobileAccount: ReactNode;
+}) {
   const [activeCategory, setActiveCategory] = useState("all");
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
@@ -260,9 +287,7 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
               </a>
             </nav>
             <div className="header-actions">
-              <a className="login-link" href="/login">
-                Masuk <Arrow diagonal />
-              </a>
+              {account}
               <a className="button button-lime button-small" href="#koleksi">
                 Jelajahi koleksi <Arrow />
               </a>
@@ -304,9 +329,7 @@ export function LandingPage({ categories }: { categories: ReactNode }) {
                     <Arrow diagonal />
                   </a>
                 ))}
-                <a href="/login" onClick={() => setMobileOpen(false)}>
-                  Masuk <Arrow diagonal />
-                </a>
+                {mobileAccount}
               </nav>
             )}
           </header>

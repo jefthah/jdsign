@@ -1,10 +1,10 @@
-/* Masuk, Daftar, Verifikasi kode, dan Akun. Mengikuti frame "Masuk / JD Sign" di design.figcraft.
+/* Masuk, Daftar, dan Verifikasi kode. Mengikuti frame "Masuk / JD Sign" di design.figcraft.
    Stylesheet global: semua kelas berawalan auth- (lihat auth-styles.ts). CSS Modules tidak dipakai
    karena aturan Turbopack di next.config.ts memproses setiap *.css sebagai CSS biasa. */
 
-/* Shared by the sign-in pages and the account page. */
+/* Token warna, dipakai juga oleh area akun (components/account/account.css). */
 .auth-page,
-.auth-account-page {
+.acct-page {
   --auth-ink: #0a0a0a;
   --auth-paper: #f7f7f2;
   --auth-card: #ffffff;
@@ -778,92 +778,6 @@
   content: "";
 }
 
-/* Halaman akun -------------------------------------------------------------- */
-
-.auth-account-page {
-  display: flex;
-  flex-direction: column;
-  gap: 48px;
-  min-height: 100dvh;
-  padding: 32px 56px;
-  background: var(--auth-paper);
-  color: var(--auth-ink);
-}
-
-.auth-account-main {
-  width: min(560px, 100%);
-  margin: 0 auto;
-}
-
-.auth-eyebrow {
-  margin: 0;
-  color: var(--auth-muted);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-}
-
-.auth-account-facts {
-  display: grid;
-  margin: 0;
-  overflow: hidden;
-  border: 1px solid rgba(10, 10, 10, 0.12);
-  border-radius: 20px;
-  background: #ffffff;
-}
-
-.auth-account-facts div {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 22px;
-  font-size: 15px;
-}
-
-.auth-account-facts div + div {
-  border-top: 1px solid rgba(10, 10, 10, 0.12);
-}
-
-.auth-account-facts dt {
-  color: var(--auth-muted);
-}
-
-.auth-account-facts dd {
-  margin: 0;
-  font-weight: 600;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
-.auth-status-pill {
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--auth-lime);
-  font-size: 13px;
-}
-
-.auth-ghost-button {
-  padding: 10px 18px;
-  border: 1px solid rgba(10, 10, 10, 0.12);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--auth-ink);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.auth-ghost-button:hover {
-  background: #ffffff;
-}
-
-.auth-skeleton {
-  height: 320px;
-  border-radius: 20px;
-  background: linear-gradient(90deg, #eeefe7, #f7f7f2, #eeefe7);
-  background-size: 200% 100%;
-  animation: auth-shimmer 1.4s linear infinite;
-}
-
 /* Animasi & responsif ------------------------------------------------------- */
 
 @keyframes auth-spin {
@@ -892,17 +806,10 @@
   }
 }
 
-@keyframes auth-shimmer {
-  to {
-    background-position: -200% 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .auth-toast,
   .auth-mail-card,
-  .auth-otp-caret,
-  .auth-skeleton {
+  .auth-otp-caret {
     animation: none;
   }
 }
@@ -979,9 +886,5 @@
   .auth-bottombar {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .auth-account-page {
-    padding: 20px;
   }
 }

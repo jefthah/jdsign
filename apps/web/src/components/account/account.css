@@ -1,0 +1,971 @@
+/* Area akun (/account/*) dan menu akun di header. Stylesheet global: semua kelas berawalan acct-.
+   Token warna --auth-* didefinisikan di auth.css untuk .auth-page dan .acct-page. */
+
+/* Avatar & menu akun ------------------------------------------------------- */
+
+.acct-avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: #c6ff3d;
+  color: #0a0a0a;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.acct-menu {
+  --menu-bg: #ffffff;
+  --menu-text: #0a0a0a;
+  --menu-muted: #5f6357;
+  --menu-line: rgba(10, 10, 10, 0.12);
+  --menu-line-strong: rgba(10, 10, 10, 0.24);
+  --menu-hover: #eeefe7;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.acct-menu-dark {
+  --menu-bg: #171b11;
+  --menu-text: #eef0e6;
+  --menu-muted: #a0a298;
+  --menu-line: #303825;
+  --menu-line-strong: #4b563a;
+  --menu-hover: #232a19;
+}
+
+.acct-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 240px;
+  height: 44px;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid var(--menu-line);
+  border-radius: 999px;
+  background: var(--menu-bg);
+  color: var(--menu-text);
+  font-size: 14px;
+  font-weight: 600;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.acct-trigger:hover,
+.acct-trigger[aria-expanded="true"] {
+  border-color: var(--menu-line-strong);
+}
+
+.acct-menu-dark .acct-trigger {
+  height: 40px;
+  font-size: 12px;
+}
+
+.acct-trigger-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acct-trigger-chevron {
+  display: grid;
+  color: var(--menu-muted);
+  transition: transform 0.2s ease;
+}
+
+.acct-trigger[aria-expanded="true"] .acct-trigger-chevron {
+  transform: rotate(180deg);
+}
+
+.acct-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 50;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  padding: 8px;
+  border: 1px solid var(--menu-line);
+  border-radius: 18px;
+  background: var(--menu-bg);
+  color: var(--menu-text);
+  box-shadow: 0 24px 60px rgba(10, 10, 10, 0.18);
+  text-align: left;
+  transform-origin: top right;
+  animation: acct-pop 0.16s ease-out;
+}
+
+.acct-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+  padding: 10px 10px 14px;
+  border-bottom: 1px solid var(--menu-line);
+}
+
+.acct-panel-who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.acct-panel-name,
+.acct-panel-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acct-panel-name {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.acct-panel-email {
+  color: var(--menu-muted);
+  font-size: 13px;
+}
+
+.acct-panel-role {
+  align-self: flex-start;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #c6ff3d;
+  color: #0a0a0a;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.acct-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--menu-text);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  transition: background-color 0.15s;
+}
+
+.acct-panel-item svg {
+  color: var(--menu-muted);
+}
+
+.acct-panel-item:hover {
+  background: var(--menu-hover);
+}
+
+.acct-panel-item:hover svg {
+  color: var(--menu-text);
+}
+
+.acct-panel-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--menu-line);
+}
+
+.acct-trigger-skeleton {
+  display: block;
+  flex-shrink: 0;
+  width: 132px;
+  height: 44px;
+  border-radius: 999px;
+  background: #eeefe7;
+}
+
+.acct-trigger-skeleton-dark {
+  width: 120px;
+  height: 40px;
+  background: #171b11;
+}
+
+/* Kerangka halaman --------------------------------------------------------- */
+
+/* Saat pindah halaman, Next.js menggulir ke konten baru; jangan sampai tertutup topbar yang menempel. */
+html:has(.acct-page) {
+  scroll-padding-top: 112px;
+}
+
+.acct-page {
+  min-height: 100dvh;
+  background: var(--auth-paper);
+  color: var(--auth-ink);
+}
+
+.acct-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid var(--auth-line);
+  background: rgba(247, 247, 242, 0.88);
+  backdrop-filter: saturate(1.4) blur(14px);
+}
+
+.acct-topbar-inner,
+.acct-body {
+  width: min(1200px, calc(100% - 48px));
+  margin-inline: auto;
+}
+
+.acct-topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  height: 72px;
+}
+
+.acct-topnav {
+  display: flex;
+  flex: 1;
+  gap: 28px;
+  color: var(--auth-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.acct-topnav a {
+  transition: color 0.2s;
+}
+
+.acct-topnav a:hover {
+  color: var(--auth-ink);
+}
+
+.acct-login-link {
+  padding: 10px 18px;
+  border: 1px solid var(--auth-line);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.acct-body {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  align-items: start;
+  gap: 48px;
+  padding: 40px 0 96px;
+}
+
+/* Sidebar ------------------------------------------------------------------ */
+
+.acct-sidebar {
+  position: sticky;
+  top: 112px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.acct-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--auth-line);
+  border-radius: 20px;
+  background: var(--auth-card);
+}
+
+.acct-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.acct-profile-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.acct-profile-name,
+.acct-profile-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acct-profile-name {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.acct-profile-email {
+  color: var(--auth-muted);
+  font-size: 13px;
+}
+
+.acct-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.acct-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--auth-surface);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.acct-badge-lime {
+  background: var(--auth-lime);
+}
+
+.acct-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.acct-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.acct-nav a,
+.acct-nav-logout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--auth-muted);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.acct-nav a:hover,
+.acct-nav-logout:hover {
+  background: var(--auth-surface);
+  color: var(--auth-ink);
+}
+
+.acct-nav a[aria-current="page"] {
+  background: var(--auth-ink);
+  color: var(--auth-on-ink);
+}
+
+.acct-nav a[aria-current="page"] svg {
+  color: var(--auth-lime);
+}
+
+.acct-nav-logout {
+  margin-top: 10px;
+  padding-top: 15px;
+  border-top: 1px solid var(--auth-line);
+  border-radius: 0 0 12px 12px;
+}
+
+/* Konten ------------------------------------------------------------------- */
+
+.acct-main,
+.acct-main-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+
+.acct-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px 32px;
+}
+
+.acct-eyebrow {
+  color: var(--auth-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.acct-title {
+  margin-top: 10px;
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.acct-lead {
+  max-width: 58ch;
+  margin-top: 10px;
+  color: var(--auth-muted);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.acct-lead strong {
+  color: var(--auth-ink);
+  font-weight: 600;
+}
+
+.acct-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 46px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+
+.acct-button-dark {
+  padding-right: 7px;
+  background: var(--auth-ink);
+  color: var(--auth-on-ink);
+}
+
+.acct-button-dark:hover {
+  background: #1d1e1a;
+}
+
+.acct-button-badge {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--auth-lime);
+  color: var(--auth-ink);
+  transition: transform 0.2s ease;
+}
+
+.acct-button-dark:hover .acct-button-badge {
+  transform: translateX(2px);
+}
+
+.acct-button-outline {
+  border-color: var(--auth-line-strong);
+  background: var(--auth-card);
+  color: var(--auth-ink);
+}
+
+.acct-button-outline:hover {
+  border-color: var(--auth-ink);
+}
+
+.acct-button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+/* Pintasan */
+
+.acct-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.acct-shortcut {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 22px;
+  border: 1px solid var(--auth-line);
+  border-radius: 20px;
+  background: var(--auth-card);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
+}
+
+.acct-shortcut:hover {
+  border-color: var(--auth-line-strong);
+  box-shadow: 0 14px 32px rgba(10, 10, 10, 0.06);
+  transform: translateY(-2px);
+}
+
+.acct-shortcut-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  background: var(--auth-surface);
+  transition: background-color 0.2s;
+}
+
+.acct-shortcut:hover .acct-shortcut-icon {
+  background: var(--auth-lime);
+}
+
+.acct-shortcut h2 {
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.acct-shortcut p {
+  color: var(--auth-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.acct-shortcut-arrow {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  color: var(--auth-muted);
+  transition:
+    color 0.2s,
+    transform 0.2s;
+}
+
+.acct-shortcut:hover .acct-shortcut-arrow {
+  color: var(--auth-ink);
+  transform: translate(2px, -2px);
+}
+
+/* Kartu */
+
+.acct-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+  gap: 16px;
+}
+
+.acct-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.acct-card {
+  overflow: hidden;
+  border: 1px solid var(--auth-line);
+  border-radius: 20px;
+  background: var(--auth-card);
+}
+
+.acct-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--auth-line);
+}
+
+.acct-card-head h2 {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.acct-card-head p {
+  margin-top: 2px;
+  color: var(--auth-muted);
+  font-size: 14px;
+}
+
+.acct-card-head a {
+  color: var(--auth-muted);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.acct-card-head a:hover {
+  color: var(--auth-ink);
+}
+
+.acct-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+}
+
+.acct-card-body p {
+  color: var(--auth-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.acct-card-dark {
+  position: relative;
+  border-color: var(--auth-ink);
+  background: var(--auth-ink);
+  color: var(--auth-on-ink);
+}
+
+.acct-card-dark::after {
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(198, 255, 61, 0.35), transparent 70%);
+  content: "";
+}
+
+.acct-card-dark h2 {
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.acct-card-dark .acct-card-body p {
+  color: var(--auth-on-ink-muted);
+}
+
+.acct-card-dark a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--auth-lime);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.acct-check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.acct-check-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.acct-check-list span {
+  min-width: 0;
+  color: var(--auth-muted);
+  overflow-wrap: anywhere;
+}
+
+.acct-check-list strong {
+  display: block;
+  color: var(--auth-ink);
+  font-weight: 600;
+}
+
+.acct-check-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--auth-surface);
+}
+
+.acct-check-list .acct-check-icon {
+  color: var(--auth-ink);
+}
+
+.acct-check-icon-ok {
+  background: var(--auth-lime);
+}
+
+/* Keadaan kosong */
+
+.acct-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 56px 24px 60px;
+  text-align: center;
+}
+
+.acct-empty-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  margin-bottom: 10px;
+  border-radius: 22px;
+  background: var(--auth-surface);
+}
+
+.acct-empty-icon::after {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--auth-card);
+  border-radius: 50%;
+  background: var(--auth-lime);
+  content: "";
+}
+
+.acct-empty h3 {
+  font-size: 19px;
+  font-weight: 650;
+}
+
+.acct-empty p {
+  max-width: 44ch;
+  color: var(--auth-muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.acct-empty .acct-button {
+  margin-top: 14px;
+}
+
+/* Daftar detail (profil) */
+
+.acct-details > div {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 6px 24px;
+  padding: 18px 22px;
+}
+
+.acct-details > div + div {
+  border-top: 1px solid var(--auth-line);
+}
+
+.acct-details dt {
+  color: var(--auth-muted);
+  font-size: 14px;
+}
+
+.acct-details dd {
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.acct-details small {
+  display: block;
+  margin-top: 4px;
+  color: var(--auth-muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.acct-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+}
+
+.acct-card-actions p {
+  max-width: 48ch;
+  color: var(--auth-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Memuat */
+
+.acct-skeleton {
+  display: block;
+  border-radius: 20px;
+  background: linear-gradient(90deg, #eeefe7, #f7f7f2, #eeefe7);
+  background-size: 200% 100%;
+  animation: acct-shimmer 1.4s linear infinite;
+}
+
+/* Animasi & responsif ------------------------------------------------------ */
+
+@keyframes acct-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+@keyframes acct-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acct-panel,
+  .acct-skeleton {
+    animation: none;
+  }
+
+  .acct-shortcut,
+  .acct-shortcut:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .acct-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .acct-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding-top: 0;
+  }
+
+  /* Sidebar menjadi baris tab yang menempel di bawah topbar. */
+  .acct-sidebar {
+    top: 64px;
+    z-index: 20;
+    margin-inline: -24px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--auth-line);
+    background: var(--auth-paper);
+  }
+
+  .acct-profile,
+  .acct-nav-logout {
+    display: none;
+  }
+
+  .acct-nav {
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .acct-nav a {
+    padding: 9px 14px;
+    border: 1px solid var(--auth-line);
+    border-radius: 999px;
+    font-size: 14px;
+  }
+
+  .acct-nav a[aria-current="page"] {
+    border-color: var(--auth-ink);
+  }
+
+  .acct-topbar-inner {
+    height: 64px;
+  }
+}
+
+@media (max-width: 720px) {
+  .acct-topnav {
+    display: none;
+  }
+
+  .acct-topbar-inner {
+    justify-content: space-between;
+  }
+
+  .acct-shortcuts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  /* Kartu pintasan menjadi baris ringkas: ikon di kiri, teks di kanan. */
+  .acct-shortcut {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+    align-items: center;
+    gap: 2px 14px;
+    padding: 16px 48px 16px 16px;
+  }
+
+  .acct-shortcut-icon {
+    grid-row: span 2;
+    margin-bottom: 0;
+  }
+
+  .acct-shortcut h2 {
+    align-self: end;
+    font-size: 16px;
+  }
+
+  .acct-shortcut p {
+    align-self: start;
+  }
+
+  .acct-shortcut-arrow {
+    top: calc(50% - 9px);
+    right: 16px;
+  }
+
+  .acct-title {
+    font-size: 32px;
+  }
+
+  .acct-details > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .acct-topbar-inner,
+  .acct-body {
+    width: calc(100% - 32px);
+  }
+
+  .acct-sidebar {
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
+
+  .acct-trigger-name {
+    display: none;
+  }
+
+  .acct-trigger {
+    padding-right: 8px;
+  }
+
+  .acct-trigger-skeleton {
+    width: 64px;
+  }
+
+  .acct-header .acct-button {
+    width: 100%;
+  }
+}
