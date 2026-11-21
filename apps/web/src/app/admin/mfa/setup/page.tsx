@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { ShieldIcon } from "@/components/account/icons";
+import { AdminAuthCard, AdminAuthShell, AdminAuthSkeleton, siteExit } from "@/components/admin/admin-auth-shell";
 import { AuthenticatorForm, SignOutButton } from "@/components/admin/authenticator-form";
-import { AdminMfaShell, AdminMfaSkeleton } from "@/components/admin/mfa-shell";
 import { QrCode } from "@/components/admin/qr-code";
 import { SecretKey } from "@/components/admin/secret-key";
-import { styles } from "@/components/auth/auth-styles";
 import { requireAdminSetup } from "@/lib/api/admin";
+
+import "@/components/admin/admin.css";
 
 export const metadata: Metadata = {
   title: "Pasang authenticator — Panel admin JD Sign",
@@ -16,11 +16,11 @@ export const metadata: Metadata = {
 
 export default function AdminAuthenticatorSetupPage() {
   return (
-    <AdminMfaShell>
-      <Suspense fallback={<AdminMfaSkeleton />}>
+    <AdminAuthShell exit={siteExit}>
+      <Suspense fallback={<AdminAuthSkeleton />}>
         <Setup />
       </Suspense>
-    </AdminMfaShell>
+    </AdminAuthShell>
   );
 }
 
@@ -29,40 +29,26 @@ async function Setup() {
 
   if (state.kind === "unavailable") {
     return (
-      <div className={`${styles.column} adm-mfa-column`}>
-        <div className={styles.heading}>
-          <span className={styles.headingIcon}>
-            <ShieldIcon size={22} />
-          </span>
-          <h1 className={styles.title}>Panel admin belum siap</h1>
-          <p className={styles.lead}>{state.message}</p>
-        </div>
-        <p className="adm-help">
+      <AdminAuthCard step={3} title="Panel admin belum siap" lead={state.message}>
+        <p className="adm-auth-note">
           Pengelola server perlu menjalankan ulang konfigurasi staging agar kunci enkripsi dibuat, lalu deploy ulang.
         </p>
-        <div className="adm-mfa-actions">
-          <span className="adm-help">Akun Anda tetap bisa dipakai seperti biasa.</span>
+        <div className="adm-auth-help-row">
+          <p>Akun Anda tetap bisa dipakai seperti biasa.</p>
           <SignOutButton />
         </div>
-      </div>
+      </AdminAuthCard>
     );
   }
 
   const { setup } = state;
 
   return (
-    <div className={`${styles.column} adm-mfa-column`}>
-      <div className={styles.heading}>
-        <span className={styles.headingIcon}>
-          <ShieldIcon size={22} />
-        </span>
-        <h1 className={styles.title}>Amankan panel admin</h1>
-        <p className={styles.lead}>
-          Admin JD Sign wajib memakai aplikasi authenticator. Setelah terpasang, setiap kali masuk Anda diminta kode 6
-          digit dari aplikasi itu.
-        </p>
-      </div>
-
+    <AdminAuthCard
+      step={3}
+      title="Amankan panel admin"
+      lead="Admin JD Sign wajib memakai aplikasi authenticator. Setelah terpasang, setiap kali masuk Anda diminta kode 6 digit dari aplikasi itu."
+    >
       <ol className="adm-steps">
         <li>
           <div>
@@ -93,10 +79,10 @@ async function Setup() {
         </li>
       </ol>
 
-      <div className="adm-mfa-actions">
-        <span className="adm-help">Kunci ini hanya tampil sampai authenticator aktif. Jangan bagikan.</span>
+      <div className="adm-auth-help-row">
+        <p>Kunci ini hanya tampil sampai authenticator aktif. Jangan bagikan.</p>
         <SignOutButton />
       </div>
-    </div>
+    </AdminAuthCard>
   );
 }

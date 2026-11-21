@@ -1,23 +1,15 @@
 "use client";
 
-import { use, useState, useSyncExternalStore, type FormEvent } from "react";
+import { use, useState, type FormEvent } from "react";
 import { browser } from "react-dom";
 
-import { browserApi, connectionErrorMessage, type ApiError } from "@/lib/api/browser";
 import { defaultNextPath, safeNextPath } from "@/lib/auth/paths";
 
 import type { AuthVariant } from "./auth-shell";
 import { styles } from "./auth-styles";
 import { ArrowLeftIcon, ArrowRightIcon, GoogleIcon, MailIcon } from "./icons";
 import { OtpInput } from "./otp-input";
-
-type Step = "email" | "code";
-type Busy = "send" | "verify" | "resend" | null;
-type Notice = { tone: "error" | "success"; text: string };
-type PendingCode = { email: string; resendAt: number; expiresAt: number };
-
-/** Survives a page refresh during the code step; cleared after signing in. */
-const storageKey = "jdsign:pending-login-code";
+import { formatSeconds, useEmailCode, type Notice } from "./use-email-code";
 
 const copy = {
   login: {
@@ -58,135 +50,24 @@ export function EmailCodeFlow({ variant }: { variant: AuthVariant }) {
 
   const [query] = useState(() => new URLSearchParams(window.location.search));
   const next = safeNextPath(query.get("next"));
-  const [pending, setPending] = useState<PendingCode | null>(readPending);
-  const [step, setStep] = useState<Step>(pending ? "code" : "email");
-  const [email, setEmail] = useState(pending?.email ?? "");
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [code, setCode] = useState("");
-  const [codeError, setCodeError] = useState<string | null>(null);
   const [remember, setRemember] = useState(true);
-  const [busy, setBusy] = useState<Busy>(null);
-  const [notice, setNotice] = useState<Notice | null>(() => {
+  const [initialNotice] = useState<Notice | null>(() => {
     const error = query.get("error");
     return error && googleErrors[error] ? { tone: "error", text: googleErrors[error] } : null;
   });
-  const secondsUntilResend = useSecondsUntil(pending?.resendAt);
+  const flow = useEmailCode({
+    storageKey: "jdsign:pending-login-code",
+    remember,
+    initialNotice,
+    // A full navigation lets the server render the next page with the new session cookie.
+    onSignedIn: () => window.location.assign(next),
+  });
+  const { busy, codeError, secondsUntilResend } = flow;
 
-  function storePending(value: PendingCode | null) {
-    setPending(value);
-    if (value) {
-      sessionStorage.setItem(storageKey, JSON.stringify(value));
-    } else {
-      sessionStorage.removeItem(storageKey);
-    }
-  }
-
-  async function requestCode(targetEmail: string, mode: "send" | "resend") {
-    const showError = mode === "send" ? setEmailError : setCodeError;
-    setBusy(mode);
-    setNotice(null);
-    showError(null);
-
-    try {
-      const { data, error } = await browserApi.POST("/auth/code", { body: { email: targetEmail } });
-      if (!data) {
-        showError(messageOf(error, "email"));
-        return;
-      }
-
-      const now = Date.now();
-      storePending({
-        email: data.email,
-        resendAt: now + data.secondsUntilResend * 1000,
-        expiresAt: now + data.expiresInSeconds * 1000,
-      });
-      setEmail(data.email);
-      if (mode === "send") {
-        setStep("code");
-        setCode("");
-        setCodeError(null);
-      }
-      if (!data.sent) {
-        setNotice({ tone: "success", text: "Kode sudah kami kirim beberapa saat lalu. Cek kotak masuk atau folder spam Anda." });
-      } else if (mode === "resend") {
-        setNotice({ tone: "success", text: `Kode baru sudah dikirim ke ${data.email}.` });
-      }
-    } catch {
-      showError(connectionErrorMessage);
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function verifyCode(digits: string) {
-    if (!pending || busy) {
-      return;
-    }
-    setBusy("verify");
-    setCodeError(null);
-    setNotice(null);
-
-    try {
-      const { data, error } = await browserApi.POST("/auth/code/verify", {
-        body: { email: pending.email, code: digits, remember },
-      });
-      if (data) {
-        sessionStorage.removeItem(storageKey);
-        // A full navigation lets the server render the next page with the new session cookie.
-        window.location.assign(next);
-        return;
-      }
-
-      setCodeError(messageOf(error, "code"));
-      setCode("");
-      const reason = error?.error.code;
-      if (reason === "code_expired" || reason === "too_many_attempts") {
-        storePending({ ...pending, resendAt: Date.now() });
-      }
-    } catch {
-      setCodeError(connectionErrorMessage);
-    }
-    setBusy(null);
-  }
-
-  function submitEmail(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!email.trim()) {
-      setEmailError("Masukkan alamat email Anda.");
-      return;
-    }
-    void requestCode(email, "send");
-  }
-
-  function submitCode(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (code.length !== 6) {
-      setCodeError("Masukkan 6 digit kode dari email.");
-      return;
-    }
-    void verifyCode(code);
-  }
-
-  function changeCode(digits: string) {
-    setCode(digits);
-    setCodeError(null);
-    if (digits.length === 6) {
-      void verifyCode(digits);
-    }
-  }
-
-  function changeEmail() {
-    storePending(null);
-    setStep("email");
-    setCode("");
-    setCodeError(null);
-    setNotice(null);
-  }
-
-  if (step === "code" && pending) {
+  if (flow.step === "code") {
     return (
       <div className={styles.column}>
-        <button type="button" className={styles.back} onClick={changeEmail}>
+        <button type="button" className={styles.back} onClick={flow.changeEmail}>
           <ArrowLeftIcon />
           Ganti email
         </button>
@@ -196,20 +77,20 @@ export function EmailCodeFlow({ variant }: { variant: AuthVariant }) {
           </span>
           <h1 className={styles.title}>Cek email Anda</h1>
           <p className={styles.lead}>
-            Masukkan kode 6 digit yang kami kirim ke <strong>{pending.email}</strong>.
+            Masukkan kode 6 digit yang kami kirim ke <strong>{flow.pendingEmail}</strong>.
           </p>
         </div>
 
-        {notice && <NoticeBanner notice={notice} />}
+        {flow.notice && <NoticeBanner notice={flow.notice} />}
 
-        <form className={styles.form} onSubmit={submitCode} noValidate>
+        <form className={styles.form} onSubmit={flow.submitCode} noValidate>
           <div className={styles.field}>
             <label className={styles.label} htmlFor="code">
               Kode verifikasi
             </label>
             <OtpInput
-              value={code}
-              onChange={changeCode}
+              value={flow.code}
+              onChange={flow.changeCode}
               invalid={codeError !== null}
               busy={busy === "verify"}
               describedBy={codeError ? "code-error" : "code-hint"}
@@ -246,12 +127,7 @@ export function EmailCodeFlow({ variant }: { variant: AuthVariant }) {
                 Kirim ulang dalam <span className={styles.countdown}>{formatSeconds(secondsUntilResend)}</span>
               </span>
             ) : (
-              <button
-                type="button"
-                className={styles.textButton}
-                disabled={busy !== null}
-                onClick={() => void requestCode(pending.email, "resend")}
-              >
+              <button type="button" className={styles.textButton} disabled={busy !== null} onClick={flow.resendCode}>
                 {busy === "resend" ? "Mengirim…" : "Kirim ulang kode"}
               </button>
             )}
@@ -265,16 +141,13 @@ export function EmailCodeFlow({ variant }: { variant: AuthVariant }) {
   return (
     <EmailStep
       variant={variant}
-      email={email}
-      onEmailChange={(value) => {
-        setEmail(value);
-        setEmailError(null);
-      }}
-      emailError={emailError}
+      email={flow.email}
+      onEmailChange={flow.typeEmail}
+      emailError={flow.emailError}
       busy={busy === "send"}
-      onSubmit={submitEmail}
+      onSubmit={flow.submitEmail}
       next={next}
-      notice={notice}
+      notice={flow.notice}
     />
   );
 }
@@ -380,7 +253,7 @@ function EmailStep({
   );
 }
 
-function SubmitButton({ busy, label, busyLabel }: { busy: boolean; label: string; busyLabel: string }) {
+export function SubmitButton({ busy, label, busyLabel }: { busy: boolean; label: string; busyLabel: string }) {
   return (
     <button type="submit" className={styles.primary} disabled={busy} aria-busy={busy}>
       {busy && <span className={styles.spinner} aria-hidden="true" />}
@@ -390,7 +263,7 @@ function SubmitButton({ busy, label, busyLabel }: { busy: boolean; label: string
   );
 }
 
-function NoticeBanner({ notice }: { notice: Notice }) {
+export function NoticeBanner({ notice }: { notice: Notice }) {
   return (
     <p
       className={`${styles.notice} ${notice.tone === "error" ? styles.noticeError : styles.noticeSuccess}`}
@@ -399,40 +272,4 @@ function NoticeBanner({ notice }: { notice: Notice }) {
       {notice.text}
     </p>
   );
-}
-
-function readPending(): PendingCode | null {
-  try {
-    const stored = JSON.parse(sessionStorage.getItem(storageKey) ?? "null") as PendingCode | null;
-    if (stored && typeof stored.email === "string" && stored.expiresAt > Date.now()) {
-      return stored;
-    }
-  } catch {
-    // A corrupt entry is treated like no entry.
-  }
-  sessionStorage.removeItem(storageKey);
-
-  return null;
-}
-
-function messageOf(error: ApiError | undefined, field: "email" | "code"): string {
-  return error?.error.fields?.[field] ?? error?.error.message ?? "Terjadi kesalahan. Silakan coba lagi.";
-}
-
-const subscribeToClock = (onTick: () => void) => {
-  const timer = window.setInterval(onTick, 250);
-  return () => window.clearInterval(timer);
-};
-
-/** Whole seconds until `target` (a Date.now() timestamp), rounded up and ticking while mounted. */
-function useSecondsUntil(target: number | undefined): number {
-  return useSyncExternalStore(
-    subscribeToClock,
-    () => (target ? Math.max(0, Math.ceil((target - Date.now()) / 1000)) : 0),
-    () => 0,
-  );
-}
-
-function formatSeconds(total: number): string {
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }

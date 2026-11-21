@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { ShieldIcon } from "@/components/account/icons";
+import { AdminAuthCard, AdminAuthShell, AdminAuthSkeleton, siteExit } from "@/components/admin/admin-auth-shell";
 import { AuthenticatorForm, SignOutButton } from "@/components/admin/authenticator-form";
-import { AdminMfaShell, AdminMfaSkeleton } from "@/components/admin/mfa-shell";
-import { styles } from "@/components/auth/auth-styles";
 import { requireAdminAwaitingCode } from "@/lib/api/admin";
+import { getSignedInAccount } from "@/lib/api/session";
 
 export const metadata: Metadata = {
   title: "Kode authenticator — Panel admin JD Sign",
@@ -14,35 +13,43 @@ export const metadata: Metadata = {
 
 export default function AdminAuthenticatorCodePage() {
   return (
-    <AdminMfaShell>
-      <Suspense fallback={<AdminMfaSkeleton />}>
+    <AdminAuthShell exit={siteExit}>
+      <Suspense fallback={<AdminAuthSkeleton />}>
         <CodeStep />
       </Suspense>
-    </AdminMfaShell>
+    </AdminAuthShell>
   );
 }
 
 async function CodeStep() {
   await requireAdminAwaitingCode();
+  const account = await getSignedInAccount();
 
   return (
-    <div className={styles.column}>
-      <div className={styles.heading}>
-        <span className={styles.headingIcon}>
-          <ShieldIcon size={22} />
-        </span>
-        <h1 className={styles.title}>Masukkan kode authenticator</h1>
-        <p className={styles.lead}>
+    <AdminAuthCard
+      step={3}
+      title="Masukkan kode authenticator"
+      lead={
+        <>
           Buka aplikasi authenticator di ponsel Anda, lalu masukkan kode 6 digit untuk <strong>JD Sign</strong>.
-        </p>
-      </div>
-
+        </>
+      }
+    >
       <AuthenticatorForm mode="verify" />
 
-      <div className="adm-mfa-actions">
-        <span className="adm-help">Ponsel hilang? Minta pengelola server me-reset authenticator Anda.</span>
-        <SignOutButton />
+      <div className="adm-auth-help">
+        <div className="adm-auth-help-row">
+          {account && (
+            <p>
+              Masuk sebagai <strong>{account.email}</strong>
+            </p>
+          )}
+          <SignOutButton />
+        </div>
+        <p className="adm-auth-note">
+          Ponsel hilang? Minta pengelola server me-reset authenticator Anda, lalu pasang ulang saat masuk berikutnya.
+        </p>
       </div>
-    </div>
+    </AdminAuthCard>
   );
 }

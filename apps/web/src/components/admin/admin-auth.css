@@ -1,0 +1,565 @@
+/* Masuk panel admin: /admin/login, /admin/mfa, /admin/mfa/setup. Tema gelap sesuai desain
+   "Admin · Masuk / Kode email / Kode authenticator" di design.figcraft.
+   Stylesheet global: kelas berawalan adm-auth-. Bagian bersama dari auth.css (kolom kode,
+   tombol, pemberitahuan) ikut gelap karena token --auth-* didefinisikan ulang di .adm-auth. */
+
+.adm-auth {
+  --auth-ink: #f2f2ec;
+  --auth-paper: #0a0a0a;
+  --auth-card: #141512;
+  --auth-surface: #1c1e18;
+  --auth-muted: #a0a298;
+  --auth-line: rgba(242, 242, 236, 0.15);
+  --auth-line-strong: rgba(242, 242, 236, 0.3);
+  --auth-field-line: rgba(242, 242, 236, 0.15);
+  --auth-lime: #c6ff3d;
+  --auth-on-ink: #0a0a0a;
+  --auth-on-ink-muted: #5f6357;
+  --auth-danger: #ff9b8f;
+  --auth-focus: 0 0 0 4px rgba(198, 255, 61, 0.12);
+
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: 24px 40px 28px;
+  overflow-x: clip;
+  background: var(--auth-paper);
+  color: var(--auth-ink);
+  color-scheme: dark;
+}
+
+/* Cahaya lime lembut di belakang kartu. */
+.adm-auth::before {
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 50%;
+  width: 820px;
+  height: 820px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(198, 255, 61, 0.2), rgba(198, 255, 61, 0));
+  content: "";
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.adm-auth button:focus-visible,
+.adm-auth a:focus-visible {
+  outline-color: var(--auth-lime);
+}
+
+.adm-auth-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Bilah atas dan bawah -------------------------------------------------------- */
+
+.adm-auth-topbar,
+.adm-auth-bottombar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.adm-auth-topbar {
+  min-height: 40px;
+}
+
+.adm-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.adm-auth .auth-wordmark-tile {
+  color: var(--auth-paper);
+}
+
+.adm-auth-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--auth-line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+.adm-auth-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--auth-lime);
+}
+
+.adm-auth-exit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--auth-muted);
+  font-size: 15px;
+}
+
+.adm-auth-exit-link {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--auth-line);
+  border-radius: 999px;
+  color: var(--auth-ink);
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.adm-auth-exit-link:hover {
+  border-color: var(--auth-line-strong);
+  background: var(--auth-surface);
+}
+
+.adm-auth-bottombar {
+  color: var(--auth-muted);
+  font-size: 14px;
+}
+
+.adm-auth-assurances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-auth-assurances li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.adm-auth-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+/* Kartu ------------------------------------------------------------------------ */
+
+.adm-auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: min(520px, 100%);
+  padding: 48px;
+  border: 1px solid var(--auth-line);
+  border-radius: 28px;
+  background: var(--auth-card);
+}
+
+.adm-auth-head {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.adm-auth-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.adm-auth-shield {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--auth-surface);
+  color: var(--auth-lime);
+}
+
+.adm-auth-steps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-auth-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--auth-muted);
+  font-size: 13px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.adm-auth-step-circle {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--auth-line);
+  border-radius: 50%;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.adm-auth-step[data-state="done"] .adm-auth-step-circle,
+.adm-auth-step[data-state="current"] .adm-auth-step-circle {
+  border-color: var(--auth-lime);
+  background: var(--auth-lime);
+  color: var(--auth-paper);
+  font-weight: 700;
+}
+
+.adm-auth-step[data-state="current"] {
+  color: var(--auth-ink);
+  font-weight: 600;
+}
+
+/* Garis penghubung antarlangkah: jarak 10px di kedua sisi, sama seperti desain. */
+.adm-auth-step + .adm-auth-step::before {
+  flex-shrink: 0;
+  width: 16px;
+  height: 1px;
+  margin-right: 2px;
+  background: var(--auth-line);
+  content: "";
+}
+
+.adm-auth-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.adm-auth-title {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 40px;
+  text-wrap: balance;
+}
+
+.adm-auth-lead {
+  color: var(--auth-muted);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.adm-auth-lead strong {
+  color: var(--auth-ink);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.adm-auth-note {
+  color: var(--auth-muted);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.adm-auth-help {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.adm-auth-help-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  color: var(--auth-muted);
+  font-size: 14px;
+  line-height: 17px;
+}
+
+.adm-auth-help-row strong {
+  color: var(--auth-ink);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.adm-auth-countdown {
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-auth-link,
+.adm-auth .auth-text-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--auth-ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s;
+}
+
+.adm-auth-link:hover:not(:disabled),
+.adm-auth .auth-text-button:hover:not(:disabled) {
+  text-decoration-color: currentColor;
+}
+
+.adm-auth-link:disabled {
+  color: var(--auth-muted);
+  cursor: default;
+}
+
+.adm-auth-skeleton {
+  display: block;
+  width: min(520px, 100%);
+  height: 600px;
+  border: 1px solid var(--auth-line);
+  border-radius: 28px;
+  background: linear-gradient(90deg, #141512, #1c1e18, #141512);
+  background-size: 200% 100%;
+  animation: adm-auth-shimmer 1.4s linear infinite;
+}
+
+@keyframes adm-auth-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* Bagian bersama dari auth.css, versi gelap ----------------------------------------- */
+
+.adm-auth .auth-form {
+  gap: 16px;
+}
+
+.adm-auth .auth-hint,
+.adm-auth .auth-error {
+  line-height: 20px;
+}
+
+.adm-auth .auth-google {
+  height: 52px;
+  border-color: var(--auth-line);
+  border-radius: 14px;
+  background: transparent;
+}
+
+.adm-auth .auth-google:hover {
+  border-color: var(--auth-line-strong);
+  background: var(--auth-surface);
+}
+
+.adm-auth .auth-input-wrap {
+  gap: 12px;
+  height: 52px;
+  padding: 0 16px;
+  border-radius: 14px;
+  background: var(--auth-paper);
+}
+
+.adm-auth .auth-input-wrap:focus-within {
+  border-color: var(--auth-lime);
+}
+
+.adm-auth .auth-input-wrap.auth-invalid {
+  border-color: var(--auth-danger);
+}
+
+.adm-auth .auth-input::placeholder {
+  color: #6f7268;
+}
+
+/* Tombol utama lime dengan panah di petak hitam. */
+.adm-auth .auth-primary {
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 8px 0 24px;
+  border-radius: 14px;
+  background: var(--auth-lime);
+  color: var(--auth-paper);
+  font-size: 16px;
+}
+
+.adm-auth .auth-primary svg {
+  box-sizing: content-box;
+  width: 14px;
+  height: 14px;
+  padding: 13px;
+  border-radius: 10px;
+  background: var(--auth-paper);
+  color: var(--auth-lime);
+}
+
+.adm-auth .auth-primary:hover:not(:disabled) {
+  background: #d4ff6e;
+}
+
+.adm-auth .auth-primary[aria-busy="true"] {
+  justify-content: center;
+}
+
+.adm-auth .auth-spinner {
+  border-color: rgba(10, 10, 10, 0.25);
+  border-top-color: var(--auth-paper);
+}
+
+.adm-auth .auth-otp-boxes {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 12px repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.adm-auth .auth-otp-box {
+  height: 64px;
+  border-radius: 14px;
+  background: var(--auth-paper);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.adm-auth .auth-otp-box-active {
+  border-color: var(--auth-lime);
+}
+
+.adm-auth .auth-otp-invalid .auth-otp-box {
+  border-color: var(--auth-danger);
+}
+
+.adm-auth .auth-otp-caret {
+  height: 28px;
+  background: var(--auth-lime);
+}
+
+.adm-auth .auth-otp-separator {
+  background: var(--auth-line);
+}
+
+.adm-auth .auth-notice-error {
+  border-color: rgba(255, 155, 143, 0.35);
+  background: rgba(180, 35, 24, 0.16);
+  color: #ffc2ba;
+}
+
+.adm-auth .auth-notice-success {
+  border-color: rgba(198, 255, 61, 0.3);
+  background: rgba(198, 255, 61, 0.08);
+  color: #e2ffa0;
+}
+
+/* Pemasangan authenticator (/admin/mfa/setup) ------------------------------------ */
+
+.adm-auth .adm-steps > li::before {
+  background: var(--auth-surface);
+  color: var(--auth-lime);
+}
+
+.adm-auth .adm-qr-card {
+  background: var(--auth-paper);
+}
+
+.adm-auth .adm-copy {
+  background: transparent;
+}
+
+.adm-auth .adm-copy:hover {
+  border-color: var(--auth-line-strong);
+  background: var(--auth-surface);
+}
+
+/* Responsif ------------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-auth-skeleton {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .adm-auth {
+    padding: 16px 16px 20px;
+  }
+
+  .adm-auth-exit-prompt {
+    display: none;
+  }
+
+  .adm-auth-exit-link {
+    height: 36px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+
+  .adm-auth-main {
+    align-items: flex-start;
+    padding: 24px 0 32px;
+  }
+
+  .adm-auth-card {
+    gap: 28px;
+    padding: 28px 22px;
+    border-radius: 22px;
+  }
+
+  .adm-auth-title {
+    font-size: 28px;
+    line-height: 34px;
+  }
+
+  /* Di layar sempit hanya label langkah aktif yang tampil; label lain tetap dibaca pembaca layar. */
+  .adm-auth-step:not([aria-current]) .adm-auth-step-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .adm-auth .auth-otp-boxes {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) 10px repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .adm-auth .auth-otp-box {
+    height: 56px;
+    font-size: 24px;
+  }
+
+  .adm-auth-bottombar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+  }
+}

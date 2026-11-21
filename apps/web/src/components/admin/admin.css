@@ -1,5 +1,5 @@
 /* Panel admin (/admin/*). Stylesheet global: semua kelas berawalan adm-.
-   Tata letak memakai kelas auth- (halaman authenticator) dan acct- (panel), termasuk token --auth-*. */
+   Tata letak memakai kelas acct- (panel) dan token --auth-*. Halaman masuk admin ada di admin-auth.css. */
 
 .adm-pill {
   display: inline-flex;
@@ -20,15 +20,7 @@
   color: var(--auth-lime);
 }
 
-/* Halaman authenticator ------------------------------------------------------ */
-
-.adm-mfa-page {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.adm-mfa-column {
-  width: min(480px, 100%);
-}
+/* Pemasangan authenticator (/admin/mfa/setup) ------------------------------- */
 
 .adm-steps {
   display: flex;
@@ -140,41 +132,6 @@
   border-color: var(--auth-ink);
 }
 
-.adm-help {
-  color: var(--auth-muted);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.adm-mfa-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-  padding-top: 20px;
-  border-top: 1px solid var(--auth-line);
-}
-
-.adm-skeleton {
-  display: block;
-  width: min(440px, 100%);
-  height: 360px;
-  border-radius: 20px;
-  background: linear-gradient(90deg, #eeefe7, #f7f7f2, #eeefe7);
-  background-size: 200% 100%;
-  animation: adm-shimmer 1.4s linear infinite;
-}
-
-@keyframes adm-shimmer {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: -100% 0;
-  }
-}
-
 /* Panel ---------------------------------------------------------------------- */
 
 .adm-panel-card p {
@@ -251,12 +208,6 @@
   margin-top: auto;
   color: var(--auth-muted);
   font-size: 13px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .adm-skeleton {
-    animation: none;
-  }
 }
 
 @media (max-width: 1100px) {

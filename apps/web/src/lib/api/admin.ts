@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
-import { adminHomePath, adminSetupPath, adminVerifyPath } from "@/lib/auth/admin-paths";
+import { adminHomePath, adminLoginHref, adminSetupPath, adminVerifyPath } from "@/lib/auth/admin-paths";
 
 import type { components } from "./schema";
 import { serverApi } from "./server";
@@ -17,7 +17,7 @@ export type SetupState = { kind: "ready"; setup: AdminMfaSetup } | { kind: "unav
  */
 function leaveAdminArea(status: number, code: string | undefined, path: string): never {
   if (status === 401) {
-    redirect(`/login?next=${encodeURIComponent(path)}`);
+    redirect(adminLoginHref(path));
   }
   if (code === "mfa_setup_required") {
     redirect(adminSetupPath);
@@ -32,10 +32,45 @@ function leaveAdminArea(status: number, code: string | undefined, path: string):
 async function sessionOrLogin(path: string): Promise<{ cookie: string }> {
   const headers = await sessionCookieHeader();
   if (!headers) {
-    redirect(`/login?next=${encodeURIComponent(path)}`);
+    redirect(adminLoginHref(path));
   }
 
   return headers;
+}
+
+/** How far this visitor is on the way into the admin panel. */
+export type AdminAccess = "signed-out" | "not-admin" | "needs-setup" | "needs-code" | "verified";
+
+/**
+ * For the admin sign-in page: checks the session against the admin API
+ * without redirecting. An unreachable API counts as signed out, so the
+ * sign-in form still shows. Render inside <Suspense>.
+ */
+export async function getAdminAccess(): Promise<AdminAccess> {
+  const headers = await sessionCookieHeader();
+  if (!headers) {
+    return "signed-out";
+  }
+  const result = await serverApi
+    .GET("/admin/overview", { headers, signal: AbortSignal.timeout(3000) })
+    .catch(() => null);
+  if (!result) {
+    return "signed-out";
+  }
+  if (result.data) {
+    return "verified";
+  }
+
+  switch (result.error?.error.code) {
+    case "mfa_required":
+      return "needs-code";
+    case "mfa_setup_required":
+      return "needs-setup";
+    case "admin_only":
+      return "not-admin";
+    default:
+      return "signed-out";
+  }
 }
 
 /** Overview counts for a verified admin; everyone else is redirected. Render inside <Suspense>. */

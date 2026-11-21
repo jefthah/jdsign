@@ -7,7 +7,7 @@ import { styles } from "@/components/auth/auth-styles";
 import { ArrowRightIcon } from "@/components/auth/icons";
 import { OtpInput } from "@/components/auth/otp-input";
 import { browserApi, connectionErrorMessage, type ApiError } from "@/lib/api/browser";
-import { adminSetupPath, adminVerifyPath, safeAdminNextPath } from "@/lib/auth/admin-paths";
+import { adminLoginHref, adminSetupPath, adminVerifyPath, safeAdminNextPath } from "@/lib/auth/admin-paths";
 
 type Mode = "setup" | "verify";
 
@@ -90,7 +90,9 @@ export function AuthenticatorForm({ mode }: { mode: Mode }) {
           </p>
         ) : (
           <p id="code-hint" className={styles.hint}>
-            Kode di aplikasi berganti setiap 30 detik.
+            {mode === "setup"
+              ? "Kode di aplikasi berganti setiap 30 detik."
+              : "Kode berganti setiap 30 detik. Pakai kode yang sedang tampil."}
           </p>
         )}
       </div>
@@ -119,7 +121,7 @@ export function SignOutButton() {
 function redirectFor(status: number, failure: ApiError | undefined): string | null {
   switch (true) {
     case status === 401:
-      return `/login?next=${encodeURIComponent("/admin")}`;
+      return adminLoginHref(new URLSearchParams(window.location.search).get("next") ?? "");
     case failure?.error.code === "mfa_setup_required":
       return adminSetupPath;
     case failure?.error.code === "mfa_already_enabled":

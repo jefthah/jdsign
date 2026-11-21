@@ -1,4 +1,4 @@
-import { adminSetupPath, adminVerifyPath } from "@/lib/auth/admin-paths";
+import { adminLoginHref, adminSetupPath, adminVerifyPath } from "@/lib/auth/admin-paths";
 
 import type { ApiError } from "./browser";
 
@@ -11,7 +11,7 @@ export function leaveOnSessionProblem(status: number, failure: ApiError | undefi
   const here = window.location.pathname + window.location.search;
   let destination: string | null = null;
   if (status === 401) {
-    destination = `/login?next=${encodeURIComponent(here)}`;
+    destination = adminLoginHref(here);
   } else if (failure?.error.code === "mfa_required") {
     destination = `${adminVerifyPath}?next=${encodeURIComponent(here)}`;
   } else if (failure?.error.code === "mfa_setup_required") {
