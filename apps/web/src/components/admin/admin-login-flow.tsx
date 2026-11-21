@@ -7,9 +7,15 @@ import { browser } from "react-dom";
 import { NoticeBanner, SubmitButton } from "@/components/auth/email-code-flow";
 import { ArrowRightIcon, GoogleIcon, MailIcon } from "@/components/auth/icons";
 import { OtpInput } from "@/components/auth/otp-input";
-import { formatSeconds, useEmailCode, type Account, type Notice } from "@/components/auth/use-email-code";
+import {
+  formatSeconds,
+  googleErrorNotice,
+  useEmailCode,
+  type Account,
+  type Notice,
+} from "@/components/auth/use-email-code";
 import { browserApi } from "@/lib/api/browser";
-import { adminHomePath, adminLoginHref, adminLoginPath, adminVerifyPath } from "@/lib/auth/admin-paths";
+import { adminHomePath, adminLoginHref, adminLoginPath, adminStepHref, adminVerifyPath } from "@/lib/auth/admin-paths";
 
 import { AdminAuthCard } from "./admin-auth-shell";
 
@@ -25,18 +31,20 @@ export function AdminLoginFlow({ next }: { next: string }) {
   use(browser("Langkah masuk admin tersimpan di sessionStorage."));
 
   const [signedInAs, setSignedInAs] = useState<string | null>(null);
+  // A failed Google sign-in comes back here with ?error=<code>.
+  const [initialNotice] = useState(() => googleErrorNotice(new URLSearchParams(window.location.search).get("error")));
   const flow = useEmailCode({
     storageKey: "jdsign:pending-admin-code",
     // The admin session ends when the browser closes.
     remember: false,
+    initialNotice,
     onSignedIn: (account: Account) => {
       if (account.role !== "admin") {
         setSignedInAs(account.email);
         return;
       }
       // A full navigation, not router.push, so the server renders the authenticator step with the new session cookie.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.assign(`${adminVerifyPath}?next=${encodeURIComponent(next)}`);
+      window.location.assign(adminStepHref(adminVerifyPath, next));
     },
   });
   const { busy, codeError, secondsUntilResend } = flow;

@@ -6,7 +6,7 @@ import { AdminAuthShell, buyerExit } from "@/components/admin/admin-auth-shell";
 import { AdminLoginFallback, AdminLoginFlow, NotAdmin } from "@/components/admin/admin-login-flow";
 import { getAdminAccess } from "@/lib/api/admin";
 import { getSignedInAccount } from "@/lib/api/session";
-import { adminSetupPath, adminVerifyPath, safeAdminNextPath } from "@/lib/auth/admin-paths";
+import { adminNextParam, adminSetupPath, adminStepHref, adminVerifyPath } from "@/lib/auth/admin-paths";
 
 export const metadata: Metadata = {
   title: "Masuk — Panel admin JD Sign",
@@ -25,16 +25,15 @@ export default function AdminLoginPage(props: PageProps<"/admin/login">) {
 
 /** Signed-in admins skip ahead to their next step; everyone else signs in here. */
 async function SignInStep({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const requested = (await searchParams).next;
-  const next = safeAdminNextPath(Array.isArray(requested) ? requested[0] : requested);
+  const next = adminNextParam((await searchParams).next);
 
   switch (await getAdminAccess()) {
     case "verified":
       redirect(next);
     case "needs-code":
-      redirect(`${adminVerifyPath}?next=${encodeURIComponent(next)}`);
+      redirect(adminStepHref(adminVerifyPath, next));
     case "needs-setup":
-      redirect(adminSetupPath);
+      redirect(adminStepHref(adminSetupPath, next));
     case "not-admin": {
       const account = await getSignedInAccount();
       if (account) {

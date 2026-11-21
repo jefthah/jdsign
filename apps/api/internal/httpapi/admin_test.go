@@ -96,6 +96,39 @@ func TestEveryNewSessionNeedsAFreshAuthenticatorCode(t *testing.T) {
 	assertError(t, app.do(t, http.MethodGet, "/api/v1/admin/overview", nil, third), http.StatusForbidden, "mfa_required")
 }
 
+func TestAdminUnlockEndsTwelveHoursAfterTheCode(t *testing.T) {
+	app := newAdminApp(t)
+	session := app.adminSession(t)
+	secret, step := app.enableAuthenticator(t, session)
+
+	// In use all along, but the code was entered thirteen hours ago.
+	app.exec(t, "UPDATE sessions SET mfa_verified_at = now() - interval '13 hours'")
+	assertError(t, app.do(t, http.MethodGet, "/api/v1/admin/overview", nil, session), http.StatusForbidden, "mfa_required")
+	assertStatus(t, app.do(t, http.MethodGet, "/api/v1/me", nil, session), http.StatusOK)
+
+	assertStatus(t, app.do(t, http.MethodPost, "/api/v1/admin/mfa/verify", map[string]string{"code": totp.Code(secret, step+1)}, session), http.StatusNoContent)
+	assertStatus(t, app.do(t, http.MethodGet, "/api/v1/admin/overview", nil, session), http.StatusOK)
+}
+
+func TestAnIdleHourLocksTheAdminArea(t *testing.T) {
+	app := newAdminApp(t)
+	session := app.adminSession(t)
+	secret, step := app.enableAuthenticator(t, session)
+
+	app.exec(t, "UPDATE sessions SET last_seen_at = now() - interval '61 minutes'")
+	assertError(t, app.do(t, http.MethodGet, "/api/v1/admin/overview", nil, session), http.StatusForbidden, "mfa_required")
+	// The refused request counted as activity; it must not unlock the admin area again.
+	assertError(t, app.do(t, http.MethodGet, "/api/v1/admin/overview", nil, session), http.StatusForbidden, "mfa_required")
+	assertStatus(t, app.do(t, http.MethodGet, "/api/v1/me", nil, session), http.StatusOK)
+
+	assertStatus(t, app.do(t, http.MethodPost, "/api/v1/admin/mfa/verify", map[string]string{"code": totp.Code(secret, step+1)}, session), http.StatusNoContent)
+	assertStatus(t, app.do(t, http.MethodGet, "/api/v1/admin/overview", nil, session), http.StatusOK)
+
+	// Activity within the hour keeps it unlocked.
+	app.exec(t, "UPDATE sessions SET last_seen_at = now() - interval '59 minutes'")
+	assertStatus(t, app.do(t, http.MethodGet, "/api/v1/admin/overview", nil, session), http.StatusOK)
+}
+
 func TestAuthenticatorAttemptsAreLimitedPerAdmin(t *testing.T) {
 	app := newAdminApp(t)
 	secret, step := app.enableAuthenticator(t, app.adminSession(t))

@@ -22,9 +22,22 @@ export function safeAdminNextPath(value: string | null | undefined): string {
   return value;
 }
 
-/** The admin sign-in page, returning to `next` (an admin page) afterwards. */
-export function adminLoginHref(next: string): string {
+/**
+ * A sign-in step (sign-in page, authenticator code or setup) that returns to
+ * `next`, an admin page, once the admin is through.
+ */
+export function adminStepHref(step: string, next: string | null | undefined): string {
   const destination = safeAdminNextPath(next);
 
-  return destination === adminHomePath ? adminLoginPath : `${adminLoginPath}?next=${encodeURIComponent(destination)}`;
+  return destination === adminHomePath ? step : `${step}?next=${encodeURIComponent(destination)}`;
+}
+
+/** The checked `next` search parameter of an admin sign-in page. */
+export function adminNextParam(value: string | string[] | undefined): string {
+  return safeAdminNextPath(Array.isArray(value) ? value[0] : value);
+}
+
+/** The admin sign-in page, returning to `next` (an admin page) afterwards. */
+export function adminLoginHref(next: string | null | undefined): string {
+  return adminStepHref(adminLoginPath, next);
 }

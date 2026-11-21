@@ -352,6 +352,24 @@ func TestGoogleCallbackRejectsForgedState(t *testing.T) {
 	assertRedirect(t, withoutCookie, testAppURL+"/login?error=google_state")
 }
 
+func TestFailedGoogleAdminSignInReturnsToTheAdminSignInPage(t *testing.T) {
+	provider := newFakeGoogle(t, "Rina", "rina@gmail.com", true)
+	app := newAuthApp(t, func(settings *httpapi.Settings) { settings.Google = provider.config() })
+	adminLogin := "/admin/login?next=" + url.QueryEscape("/admin/templates?status=draft")
+
+	start := app.do(t, http.MethodGet, "/api/v1/auth/google?next="+url.QueryEscape(adminLogin), nil, nil)
+	cancelled := app.do(t, http.MethodGet, "/api/v1/auth/google/callback?error=access_denied", nil, findCookie(start, "jdsign_google"))
+	assertRedirect(t, cancelled, testAppURL+"/admin/login?error=google_cancelled&next="+url.QueryEscape("/admin/templates?status=draft"))
+
+	start = app.do(t, http.MethodGet, "/api/v1/auth/google?next="+url.QueryEscape("/admin/login"), nil, nil)
+	forged := app.do(t, http.MethodGet, "/api/v1/auth/google/callback?code=x&state=palsu", nil, findCookie(start, "jdsign_google"))
+	assertRedirect(t, forged, testAppURL+"/admin/login?error=google_state")
+
+	withoutGoogle := newAuthApp(t)
+	disabled := withoutGoogle.do(t, http.MethodGet, "/api/v1/auth/google?next="+url.QueryEscape(adminLogin), nil, nil)
+	assertRedirect(t, disabled, testAppURL+"/admin/login?error=google_unavailable&next="+url.QueryEscape("/admin/templates?status=draft"))
+}
+
 func TestGoogleIgnoresExternalNextPath(t *testing.T) {
 	provider := newFakeGoogle(t, "Rina", "rina@gmail.com", true)
 	app := newAuthApp(t, func(settings *httpapi.Settings) { settings.Google = provider.config() })

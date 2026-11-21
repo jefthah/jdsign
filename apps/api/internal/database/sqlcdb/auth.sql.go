@@ -156,7 +156,9 @@ const getSessionAccount = `-- name: GetSessionAccount :one
 SELECT
     s.remember,
     (s.last_seen_at < now() - interval '1 minute')::boolean AS needs_touch,
-    (s.mfa_verified_at IS NOT NULL)::boolean AS mfa_verified,
+    (s.mfa_verified_at IS NOT NULL
+        AND s.mfa_verified_at > now() - interval '12 hours'
+        AND s.last_seen_at > now() - interval '1 hour')::boolean AS mfa_verified,
     u.id,
     u.email,
     u.name,
@@ -330,8 +332,9 @@ func (q *Queries) SaveLoginCode(ctx context.Context, arg SaveLoginCodeParams) er
 
 const touchSession = `-- name: TouchSession :exec
 UPDATE sessions
-SET last_seen_at = now(),
-    expires_at   = now() + make_interval(secs => $1::int)
+SET last_seen_at    = now(),
+    expires_at      = now() + make_interval(secs => $1::int),
+    mfa_verified_at = CASE WHEN last_seen_at > now() - interval '1 hour' THEN mfa_verified_at END
 WHERE token_hash = $2
 `
 

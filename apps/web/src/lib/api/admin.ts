@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
-import { adminHomePath, adminLoginHref, adminSetupPath, adminVerifyPath } from "@/lib/auth/admin-paths";
+import { adminHomePath, adminLoginHref, adminSetupPath, adminStepHref, adminVerifyPath } from "@/lib/auth/admin-paths";
 
 import type { components } from "./schema";
 import { serverApi } from "./server";
@@ -20,10 +20,10 @@ function leaveAdminArea(status: number, code: string | undefined, path: string):
     redirect(adminLoginHref(path));
   }
   if (code === "mfa_setup_required") {
-    redirect(adminSetupPath);
+    redirect(adminStepHref(adminSetupPath, path));
   }
   if (code === "mfa_required") {
-    redirect(`${adminVerifyPath}?next=${encodeURIComponent(path)}`);
+    redirect(adminStepHref(adminVerifyPath, path));
   }
 
   notFound();
@@ -91,41 +91,41 @@ export async function requireAdminOverview(path = adminHomePath): Promise<AdminO
  * redirects when it is signed out, not an admin, already verified, or has no
  * authenticator yet. Render inside <Suspense>.
  */
-export async function requireAdminAwaitingCode(): Promise<void> {
+export async function requireAdminAwaitingCode(next: string): Promise<void> {
   const { data, error, response } = await serverApi.GET("/admin/overview", {
-    headers: await sessionOrLogin(adminHomePath),
+    headers: await sessionOrLogin(next),
     signal: AbortSignal.timeout(3000),
   });
   if (data) {
-    redirect(adminHomePath);
+    redirect(next);
   }
   if (error?.error.code === "mfa_required") {
     return;
   }
 
-  leaveAdminArea(response.status, error?.error.code, adminHomePath);
+  leaveAdminArea(response.status, error?.error.code, next);
 }
 
 /**
  * The secret and QR contents for an admin without a confirmed authenticator.
  * Admins who already have one go to the code page. Render inside <Suspense>.
  */
-export async function requireAdminSetup(): Promise<SetupState> {
+export async function requireAdminSetup(next: string): Promise<SetupState> {
   const { data, error, response } = await serverApi.GET("/admin/mfa/setup", {
-    headers: await sessionOrLogin(adminHomePath),
+    headers: await sessionOrLogin(next),
     signal: AbortSignal.timeout(3000),
   });
   if (data) {
     return { kind: "ready", setup: data };
   }
   if (response.status === 409) {
-    redirect(adminVerifyPath);
+    redirect(adminStepHref(adminVerifyPath, next));
   }
   if (response.status === 503 && error) {
     return { kind: "unavailable", message: error.error.message };
   }
 
-  leaveAdminArea(response.status, error?.error.code, adminHomePath);
+  leaveAdminArea(response.status, error?.error.code, next);
 }
 
 export type AdminTemplate = components["schemas"]["AdminTemplate"];

@@ -93,7 +93,7 @@ Aturan:
 - Callback memasang cookie sesi langsung, lalu redirect ke frontend. Versi lama menukar kode lewat URL karena frontend dan API beda domain; itu tidak diperlukan lagi.
 - Sesi dari Google memakai masa tidak aktif 30 hari, sama seperti "ingat saya".
 - Login Google nonaktif sampai `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET` diisi; tombolnya lalu kembali ke `/login?error=google_unavailable`.
-- `state` atau `nonce` tidak cocok, login dibatalkan, atau akun nonaktif → redirect ke `/login?error=...` dengan pesan Bahasa Indonesia.
+- `state` atau `nonce` tidak cocok, login dibatalkan, atau akun nonaktif → redirect ke `/login?error=...` dengan pesan Bahasa Indonesia. Jika login dimulai dari halaman masuk admin (tujuan `next` di dalam `/admin`), redirect ke `/admin/login?error=...&next=...`.
 
 ### 4.3 Sesi
 
@@ -110,6 +110,7 @@ Keputusan pengguna (16 November 2026): admin **wajib** memakai kode dari aplikas
 - Rahasia TOTP (20 byte acak) disimpan terenkripsi di `users.totp_secret`.
 - **Pemasangan:** admin yang belum memasang TOTP diarahkan ke halaman pemasangan yang menampilkan QR (`otpauth://totp/JD%20Sign:<email>?issuer=JD%20Sign`) dan rahasianya. TOTP aktif (`totp_confirmed_at` terisi) setelah admin memasukkan satu kode yang benar. Rahasia hanya ditampilkan selama belum dikonfirmasi.
 - **Setiap sesi baru** harus memasukkan kode TOTP sebelum membuka area admin. Setelah berhasil, `sessions.mfa_verified_at` terisi. Area pembeli dan penjual tidak memerlukan TOTP.
+- **Akses admin kedaluwarsa sendiri**, terlepas dari umur sesi login (keputusan pengguna 21 November 2026). Kode TOTP diminta lagi jika kode terakhir dimasukkan **lebih dari 12 jam** lalu, atau sesi **tidak aktif 1 jam** (`sessions.last_seen_at`). Sesi yang dipakai lagi setelah 1 jam tidak aktif kehilangan `mfa_verified_at`. Pengguna tetap masuk; hanya area admin yang terkunci.
 - Kode yang sama tidak bisa dipakai dua kali (`users.totp_last_step` menyimpan periode terakhir yang dipakai).
 - Batas laju 5 percobaan per menit per pengguna. Pesan: "Kode authenticator salah." / "Terlalu banyak percobaan. Tunggu satu menit, lalu coba lagi."
 - Jika authenticator hilang: jalankan `jdsign admin reset-totp --email ...` di server. Perintah ini mengosongkan TOTP, menghapus semua sesi admin itu, dan mencatat log audit `user.totp_reset`.
@@ -463,7 +464,7 @@ Percobaan pembayaran: `pending` → `ready` → `paid` / `closed` / `refunded`, 
 
 ### Admin
 
-Semua endpoint admin, kecuali tiga endpoint TOTP, mensyaratkan `sessions.mfa_verified_at` terisi.
+Semua endpoint admin, kecuali tiga endpoint TOTP, mensyaratkan verifikasi TOTP yang masih berlaku untuk sesi itu (bagian 4.4).
 
 | Metode | Path |
 |---|---|

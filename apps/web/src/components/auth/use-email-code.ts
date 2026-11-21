@@ -10,6 +10,24 @@ export type Busy = "send" | "verify" | "resend" | null;
 export type Notice = { tone: "error" | "success"; text: string };
 type PendingCode = { email: string; resendAt: number; expiresAt: number };
 
+/** Messages for the ?error= codes the API's Google callback redirects with. */
+const googleErrors: Record<string, string> = {
+  google_unavailable: "Login Google belum tersedia. Untuk sementara, masuk dengan kode email.",
+  google_cancelled: "Login Google dibatalkan. Anda bisa mencoba lagi atau memakai kode email.",
+  google_state: "Sesi login Google sudah berakhir. Silakan coba lagi.",
+  google_failed: "Login Google gagal. Coba lagi atau masuk dengan kode email.",
+  google_unverified: "Email akun Google Anda belum terverifikasi. Silakan masuk dengan kode email.",
+  account_inactive: "Akun ini sedang dinonaktifkan. Hubungi tim JD Sign untuk bantuan.",
+};
+
+/**
+ * The notice for a failed Google sign-in: the API's callback returns to the
+ * page it started from (/login or /admin/login) with ?error=<code>.
+ */
+export function googleErrorNotice(code: string | null): Notice | null {
+  return code && googleErrors[code] ? { tone: "error", text: googleErrors[code] } : null;
+}
+
 /**
  * The email → code sign-in steps, shared by /login, /register and /admin/login.
  * The pending code survives a page refresh in sessionStorage under

@@ -7,7 +7,7 @@ import { styles } from "@/components/auth/auth-styles";
 import { ArrowRightIcon } from "@/components/auth/icons";
 import { OtpInput } from "@/components/auth/otp-input";
 import { browserApi, connectionErrorMessage, type ApiError } from "@/lib/api/browser";
-import { adminLoginHref, adminSetupPath, adminVerifyPath, safeAdminNextPath } from "@/lib/auth/admin-paths";
+import { adminLoginHref, adminSetupPath, adminStepHref, adminVerifyPath, safeAdminNextPath } from "@/lib/auth/admin-paths";
 
 type Mode = "setup" | "verify";
 
@@ -119,13 +119,14 @@ export function SignOutButton() {
 
 /** Pages to move to when the code was refused because of the account's state, not the code. */
 function redirectFor(status: number, failure: ApiError | undefined): string | null {
+  const next = new URLSearchParams(window.location.search).get("next");
   switch (true) {
     case status === 401:
-      return adminLoginHref(new URLSearchParams(window.location.search).get("next") ?? "");
+      return adminLoginHref(next);
     case failure?.error.code === "mfa_setup_required":
-      return adminSetupPath;
+      return adminStepHref(adminSetupPath, next);
     case failure?.error.code === "mfa_already_enabled":
-      return adminVerifyPath;
+      return adminStepHref(adminVerifyPath, next);
     default:
       return null;
   }

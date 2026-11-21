@@ -78,7 +78,9 @@ type Account struct {
 	EmailVerified bool
 	// TOTPEnabled means the account has a confirmed authenticator app (admins only).
 	TOTPEnabled bool
-	// MFAVerified means this session passed the authenticator check for the admin area.
+	// MFAVerified means this session passed the authenticator check for the admin area within
+	// the last 12 hours and has been active within the last hour. A session idle for an hour
+	// loses the check when it is next used (TouchSession), so the admin enters a new code.
 	MFAVerified bool
 }
 

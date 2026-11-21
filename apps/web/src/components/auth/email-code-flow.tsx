@@ -9,7 +9,7 @@ import type { AuthVariant } from "./auth-shell";
 import { styles } from "./auth-styles";
 import { ArrowLeftIcon, ArrowRightIcon, GoogleIcon, MailIcon } from "./icons";
 import { OtpInput } from "./otp-input";
-import { formatSeconds, useEmailCode, type Notice } from "./use-email-code";
+import { formatSeconds, googleErrorNotice, useEmailCode, type Notice } from "./use-email-code";
 
 const copy = {
   login: {
@@ -30,16 +30,6 @@ const copy = {
   },
 } as const;
 
-/** Messages for the ?error= codes the API's Google callback redirects with. */
-const googleErrors: Record<string, string> = {
-  google_unavailable: "Login Google belum tersedia. Untuk sementara, masuk dengan kode email.",
-  google_cancelled: "Login Google dibatalkan. Anda bisa mencoba lagi atau memakai kode email.",
-  google_state: "Sesi login Google sudah berakhir. Silakan coba lagi.",
-  google_failed: "Login Google gagal. Coba lagi atau masuk dengan kode email.",
-  google_unverified: "Email akun Google Anda belum terverifikasi. Silakan masuk dengan kode email.",
-  account_inactive: "Akun ini sedang dinonaktifkan. Hubungi tim JD Sign untuk bantuan.",
-};
-
 /**
  * Email → code sign-in used by /login and /register. It reads sessionStorage
  * and the URL, so it renders only in the browser; the server sends
@@ -51,10 +41,7 @@ export function EmailCodeFlow({ variant }: { variant: AuthVariant }) {
   const [query] = useState(() => new URLSearchParams(window.location.search));
   const next = safeNextPath(query.get("next"));
   const [remember, setRemember] = useState(true);
-  const [initialNotice] = useState<Notice | null>(() => {
-    const error = query.get("error");
-    return error && googleErrors[error] ? { tone: "error", text: googleErrors[error] } : null;
-  });
+  const [initialNotice] = useState<Notice | null>(() => googleErrorNotice(query.get("error")));
   const flow = useEmailCode({
     storageKey: "jdsign:pending-login-code",
     remember,

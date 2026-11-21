@@ -13,7 +13,7 @@ export type ExitLink = { href: string; label: string; prompt?: string };
 export const buyerExit: ExitLink = { href: "/login", label: "Masuk sebagai pembeli", prompt: "Bukan admin?" };
 export const siteExit: ExitLink = { href: "/", label: "Kembali ke situs" };
 
-const assurances = ["Kode authenticator di setiap sesi", "Setiap tindakan tercatat di log audit"];
+const assurances = ["Kode authenticator di setiap sesi", "Terkunci lagi setelah 1 jam tanpa aktivitas"];
 
 /**
  * Dark frame for the admin sign-in steps: /admin/login, /admin/mfa and

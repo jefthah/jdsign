@@ -5,24 +5,25 @@ import { AdminAuthCard, AdminAuthShell, AdminAuthSkeleton, siteExit } from "@/co
 import { AuthenticatorForm, SignOutButton } from "@/components/admin/authenticator-form";
 import { requireAdminAwaitingCode } from "@/lib/api/admin";
 import { getSignedInAccount } from "@/lib/api/session";
+import { adminNextParam } from "@/lib/auth/admin-paths";
 
 export const metadata: Metadata = {
   title: "Kode authenticator — Panel admin JD Sign",
   robots: { index: false, follow: false },
 };
 
-export default function AdminAuthenticatorCodePage() {
+export default function AdminAuthenticatorCodePage(props: PageProps<"/admin/mfa">) {
   return (
     <AdminAuthShell exit={siteExit}>
       <Suspense fallback={<AdminAuthSkeleton />}>
-        <CodeStep />
+        <CodeStep searchParams={props.searchParams} />
       </Suspense>
     </AdminAuthShell>
   );
 }
 
-async function CodeStep() {
-  await requireAdminAwaitingCode();
+async function CodeStep({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  await requireAdminAwaitingCode(adminNextParam((await searchParams).next));
   const account = await getSignedInAccount();
 
   return (
@@ -46,6 +47,9 @@ async function CodeStep() {
           )}
           <SignOutButton />
         </div>
+        <p className="adm-auth-note">
+          Demi keamanan, kode diminta lagi setelah 1 jam tanpa aktivitas atau 12 jam sejak kode terakhir.
+        </p>
         <p className="adm-auth-note">
           Ponsel hilang? Minta pengelola server me-reset authenticator Anda, lalu pasang ulang saat masuk berikutnya.
         </p>

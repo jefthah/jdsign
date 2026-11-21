@@ -25,6 +25,9 @@ const (
 	googleCookiePath  = "/api/v1/auth/google"
 	googleStateMaxAge = 10 * time.Minute
 	defaultNextPath   = "/account"
+	// adminLoginPath is the web app's admin sign-in page; failed Google sign-ins for the admin
+	// area return there instead of /login.
+	adminLoginPath = "/admin/login"
 )
 
 // httpExchangeKey stores the request and response writer in the context, so strict handlers can
@@ -161,11 +164,15 @@ func (s *Server) Logout(ctx context.Context, _ LogoutRequestObject) (LogoutRespo
 
 // StartGoogleLogin sends the browser to Google with a fresh state, nonce, and PKCE verifier.
 func (s *Server) StartGoogleLogin(ctx context.Context, request StartGoogleLoginRequestObject) (StartGoogleLoginResponseObject, error) {
+	next := defaultNextPath
+	if request.Params.Next != nil {
+		next = safeNextPath(*request.Params.Next)
+	}
 	if !s.google.Enabled() {
-		return s.loginErrorRedirect("google_unavailable"), nil
+		return s.loginErrorRedirect("google_unavailable", next), nil
 	}
 
-	var state googleState
+	state := googleState{Next: next}
 	var err error
 	if state.State, err = google.NewSecret(); err != nil {
 		return nil, err
@@ -176,11 +183,6 @@ func (s *Server) StartGoogleLogin(ctx context.Context, request StartGoogleLoginR
 	if state.Verifier, err = google.NewSecret(); err != nil {
 		return nil, err
 	}
-	state.Next = defaultNextPath
-	if request.Params.Next != nil {
-		state.Next = safeNextPath(*request.Params.Next)
-	}
-
 	http.SetCookie(exchangeFrom(ctx).writer, &http.Cookie{
 		Name:     googleCookieName,
 		Value:    s.sealGoogleState(state),
@@ -202,41 +204,50 @@ func (s *Server) FinishGoogleLogin(ctx context.Context, request FinishGoogleLogi
 	exchange := exchangeFrom(ctx)
 	s.clearCookie(exchange.writer, googleCookieName, googleCookiePath)
 
+	// The signed state says where the sign-in started, so failures return there (the admin
+	// sign-in page or /login). Its own checks follow below.
+	var (
+		state googleState
+		ok    bool
+	)
+	if cookie, err := exchange.request.Cookie(googleCookieName); err == nil {
+		state, ok = s.openGoogleState(cookie.Value)
+	}
+	next := defaultNextPath
+	if ok {
+		next = state.Next
+	}
+	fail := func(code string) RedirectResponse { return s.loginErrorRedirect(code, next) }
+
 	if !s.google.Enabled() {
-		return s.loginErrorRedirect("google_unavailable"), nil
+		return fail("google_unavailable"), nil
 	}
 	if request.Params.Error != nil {
 		if *request.Params.Error == "access_denied" {
-			return s.loginErrorRedirect("google_cancelled"), nil
+			return fail("google_cancelled"), nil
 		}
-		return s.loginErrorRedirect("google_failed"), nil
+		return fail("google_failed"), nil
 	}
-
-	cookie, err := exchange.request.Cookie(googleCookieName)
-	if err != nil {
-		return s.loginErrorRedirect("google_state"), nil
-	}
-	state, ok := s.openGoogleState(cookie.Value)
 	if !ok || request.Params.State == nil || !hmac.Equal([]byte(*request.Params.State), []byte(state.State)) || request.Params.Code == nil {
-		return s.loginErrorRedirect("google_state"), nil
+		return fail("google_state"), nil
 	}
 
 	identity, err := s.google.Exchange(ctx, *request.Params.Code, state.Verifier, state.Nonce)
 	if errors.Is(err, google.ErrEmailNotVerified) {
-		return s.loginErrorRedirect("google_unverified"), nil
+		return fail("google_unverified"), nil
 	}
 	if err != nil {
 		s.logger.WarnContext(ctx, "login Google gagal", "error", err)
-		return s.loginErrorRedirect("google_failed"), nil
+		return fail("google_failed"), nil
 	}
 
 	_, token, err := s.auth.SignInWithGoogle(ctx, auth.GoogleIdentity(identity), clientOf(exchange.request))
 	var failure *auth.Error
 	if errors.As(err, &failure) {
 		if failure.Kind == auth.KindForbidden {
-			return s.loginErrorRedirect("account_inactive"), nil
+			return fail("account_inactive"), nil
 		}
-		return s.loginErrorRedirect("google_failed"), nil
+		return fail("google_failed"), nil
 	}
 	if err != nil {
 		return nil, err
@@ -283,8 +294,33 @@ func (s *Server) clearCookie(w http.ResponseWriter, name, path string) {
 	})
 }
 
-func (s *Server) loginErrorRedirect(code string) RedirectResponse {
-	return RedirectResponse{Headers: RedirectResponseHeaders{Location: s.appURL + "/login?error=" + url.QueryEscape(code)}}
+// loginErrorRedirect sends a failed Google sign-in back to the page it started from: the admin
+// sign-in page when it was headed for the admin area, otherwise /login.
+func (s *Server) loginErrorRedirect(code, next string) RedirectResponse {
+	page, query := "/login", url.Values{"error": {code}}
+	if target, ok := adminDestination(next); ok {
+		page = adminLoginPath
+		if target != "" {
+			query.Set("next", target)
+		}
+	}
+
+	return RedirectResponse{Headers: RedirectResponseHeaders{Location: s.appURL + page + "?" + query.Encode()}}
+}
+
+// adminDestination reports whether next (already a safe path) leads into the admin area, and the
+// admin page to open after signing in. The admin sign-in page passes its own address, with the
+// page to return to in its next parameter.
+func adminDestination(next string) (string, bool) {
+	parsed, err := url.Parse(next)
+	if err != nil || (parsed.Path != "/admin" && !strings.HasPrefix(parsed.Path, "/admin/")) {
+		return "", false
+	}
+	if parsed.Path == adminLoginPath {
+		return parsed.Query().Get("next"), true
+	}
+
+	return next, true
 }
 
 // googleState travels in a signed, HttpOnly cookie between the start and the callback.

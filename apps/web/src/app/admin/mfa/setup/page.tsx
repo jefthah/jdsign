@@ -6,6 +6,7 @@ import { AuthenticatorForm, SignOutButton } from "@/components/admin/authenticat
 import { QrCode } from "@/components/admin/qr-code";
 import { SecretKey } from "@/components/admin/secret-key";
 import { requireAdminSetup } from "@/lib/api/admin";
+import { adminNextParam } from "@/lib/auth/admin-paths";
 
 import "@/components/admin/admin.css";
 
@@ -14,18 +15,18 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function AdminAuthenticatorSetupPage() {
+export default function AdminAuthenticatorSetupPage(props: PageProps<"/admin/mfa/setup">) {
   return (
     <AdminAuthShell exit={siteExit}>
       <Suspense fallback={<AdminAuthSkeleton />}>
-        <Setup />
+        <Setup searchParams={props.searchParams} />
       </Suspense>
     </AdminAuthShell>
   );
 }
 
-async function Setup() {
-  const state = await requireAdminSetup();
+async function Setup({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const state = await requireAdminSetup(adminNextParam((await searchParams).next));
 
   if (state.kind === "unavailable") {
     return (
