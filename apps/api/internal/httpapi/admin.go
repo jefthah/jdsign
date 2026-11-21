@@ -113,6 +113,9 @@ func (s *Server) GetAdminOverview(ctx context.Context, _ GetAdminOverviewRequest
 		PendingPayouts:      int(row.PendingPayouts),
 		PendingPayoutAmount: row.PendingPayoutAmount,
 		OrdersInReview:      int(row.OrdersInReview),
+		PublishedTemplates:  int(row.PublishedTemplates),
+		DraftTemplates:      int(row.DraftTemplates),
+		Categories:          int(row.Categories),
 	}, nil
 }
 

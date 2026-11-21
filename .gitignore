@@ -1,5 +1,7 @@
 # Go
 /apps/api/bin/
+# File template yang diunggah saat pengembangan lokal (STORAGE_DIR bawaan)
+/apps/api/storage/
 *.exe
 *.test
 *.out

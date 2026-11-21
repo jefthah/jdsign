@@ -11,6 +11,134 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countTemplatesInCategory = `-- name: CountTemplatesInCategory :one
+SELECT count(*)::int FROM templates WHERE category_id = $1
+`
+
+func (q *Queries) CountTemplatesInCategory(ctx context.Context, categoryID int64) (int32, error) {
+	row := q.db.QueryRow(ctx, countTemplatesInCategory, categoryID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const createCategory = `-- name: CreateCategory :one
+INSERT INTO categories (name, slug, description)
+VALUES ($1, $2, $3)
+RETURNING id, name, slug, description, created_at, updated_at
+`
+
+type CreateCategoryParams struct {
+	Name        string
+	Slug        string
+	Description pgtype.Text
+}
+
+func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error) {
+	row := q.db.QueryRow(ctx, createCategory, arg.Name, arg.Slug, arg.Description)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deleteCategory = `-- name: DeleteCategory :exec
+DELETE FROM categories
+WHERE id = $1
+`
+
+func (q *Queries) DeleteCategory(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteCategory, id)
+	return err
+}
+
+const getCategory = `-- name: GetCategory :one
+SELECT id, name, slug, description, created_at, updated_at FROM categories
+WHERE id = $1
+`
+
+func (q *Queries) GetCategory(ctx context.Context, id int64) (Category, error) {
+	row := q.db.QueryRow(ctx, getCategory, id)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getCategoryForUpdate = `-- name: GetCategoryForUpdate :one
+SELECT id, name, slug, description, created_at, updated_at FROM categories
+WHERE id = $1
+FOR UPDATE
+`
+
+func (q *Queries) GetCategoryForUpdate(ctx context.Context, id int64) (Category, error) {
+	row := q.db.QueryRow(ctx, getCategoryForUpdate, id)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listAdminCategories = `-- name: ListAdminCategories :many
+SELECT categories.id, categories.name, categories.slug, categories.description,
+       (SELECT count(*) FROM templates WHERE templates.category_id = categories.id)::int AS template_count
+FROM categories
+ORDER BY categories.name
+`
+
+type ListAdminCategoriesRow struct {
+	ID            int64
+	Name          string
+	Slug          string
+	Description   pgtype.Text
+	TemplateCount int32
+}
+
+// template_count menghitung semua template, termasuk yang diarsipkan, karena semuanya menahan kategori.
+func (q *Queries) ListAdminCategories(ctx context.Context) ([]ListAdminCategoriesRow, error) {
+	rows, err := q.db.Query(ctx, listAdminCategories)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAdminCategoriesRow{}
+	for rows.Next() {
+		var i ListAdminCategoriesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Description,
+			&i.TemplateCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCategories = `-- name: ListCategories :many
 SELECT id, name, slug, description
 FROM categories
@@ -47,4 +175,39 @@ func (q *Queries) ListCategories(ctx context.Context) ([]ListCategoriesRow, erro
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateCategory = `-- name: UpdateCategory :one
+UPDATE categories
+SET name        = $1,
+    slug        = $2,
+    description = $3
+WHERE id = $4
+RETURNING id, name, slug, description, created_at, updated_at
+`
+
+type UpdateCategoryParams struct {
+	Name        string
+	Slug        string
+	Description pgtype.Text
+	ID          int64
+}
+
+func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error) {
+	row := q.db.QueryRow(ctx, updateCategory,
+		arg.Name,
+		arg.Slug,
+		arg.Description,
+		arg.ID,
+	)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

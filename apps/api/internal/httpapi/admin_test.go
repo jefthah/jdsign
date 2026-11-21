@@ -66,8 +66,9 @@ func TestAdminSetsUpAuthenticatorBeforeOpeningTheAdminArea(t *testing.T) {
 	assertStatus(t, overview, http.StatusOK)
 	var counts httpapi.AdminOverview
 	decode(t, overview, &counts)
-	if counts != (httpapi.AdminOverview{}) {
-		t.Fatalf("overview of an empty marketplace = %+v, want zeros", counts)
+	// Only the four seeded categories exist yet.
+	if counts != (httpapi.AdminOverview{Categories: 4}) {
+		t.Fatalf("overview of an empty marketplace = %+v, want zeros and 4 categories", counts)
 	}
 
 	assertError(t, app.do(t, http.MethodGet, "/api/v1/admin/mfa/setup", nil, session), http.StatusConflict, "mfa_already_enabled")

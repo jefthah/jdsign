@@ -1,6 +1,9 @@
 # The workflow builds the Linux binary after running the Go integration tests.
 FROM alpine:3.23
-RUN apk add --no-cache ca-certificates && addgroup -S -g 10001 jdsign && adduser -S -u 10001 -G jdsign jdsign
+# /var/lib/jdsign/storage is the template file volume (STORAGE_DIR). Creating it here, owned by the
+# API user, makes Docker initialise a new volume with that owner.
+RUN apk add --no-cache ca-certificates && addgroup -S -g 10001 jdsign && adduser -S -u 10001 -G jdsign jdsign \
+    && install -d -m 750 -o jdsign -g jdsign /var/lib/jdsign/storage
 COPY --chmod=755 dist/jdsign /usr/local/bin/jdsign
 USER jdsign
 EXPOSE 8300

@@ -46,12 +46,17 @@ services:
       # Optional. Google sign-in stays off until both are set.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Private disk for template ZIPs and covers (docs/spec.md 7.3). The image creates the folder
+      # owned by the API user, so the new volume starts out writable.
+      STORAGE_DIR: /var/lib/jdsign/storage
       GOMEMLIMIT: 192MiB
     ports: ["127.0.0.1:18300:8300"]
     networks: [database, frontend]
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - template-files:/var/lib/jdsign/storage
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
@@ -95,3 +100,4 @@ networks:
 
 volumes:
   postgres-data:
+  template-files:

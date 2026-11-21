@@ -149,6 +149,16 @@ Keputusan pengguna (16 November 2026): admin **wajib** memakai kode dari aplikas
 
 ## 7. Template
 
+### 7.0 Mode satu penjual (sementara)
+
+Keputusan 21 November 2026 (bagian 21): untuk sementara JD Sign hanya punya satu penjual, yaitu admin. Selama mode ini berlaku:
+
+- Template dibuat dan dikelola admin di panel admin (`/admin/templates`); `seller_id` = id admin.
+- Tidak ada moderasi. Status hanya `draft` atau `approved` ("tayang"). Menayangkan butuh ZIP **dan** sampul; mengubah template yang sudah tayang tidak menurunkannya ke draft.
+- Detail disimpan dulu sebagai draft. ZIP dan sampul diunggah terpisah lewat `PUT /admin/templates/{id}/files/zip?name=...` dan `PUT /admin/templates/{id}/files/cover`, dengan body mentah (`application/octet-stream`), sehingga tidak ada multipart yang ditampung di memori.
+- Mengarsipkan (`DELETE /admin/templates/{id}`) mengisi `deleted_at` dan mengembalikan status ke `draft`. Template arsip tidak bisa diubah sampai dipulihkan.
+- Toko, moderasi, komisi, dan pencairan (bagian 6, 8, 13) ditunda; skemanya tetap ada untuk mode multivendor nanti.
+
 ### 7.1 Membuat dan mengubah
 
 - Hanya penjual yang sah (lihat bagian 3), dan hanya untuk template miliknya sendiri.
@@ -188,8 +198,8 @@ Aplikasi **tidak pernah mengekstrak atau menjalankan** isi ZIP.
 
 - Disk privat di VPS (`STORAGE_DIR`), di luar folder web:
   - ZIP: `templates/<seller_id>/<acak>.zip`
-  - Sampul: `covers/<seller_id>/<uuid>.webp`
-- Sampul selalu dikodekan ulang ke WebP kualitas 85, sehingga metadata dan muatan tersembunyi terbuang.
+  - Sampul: `covers/<seller_id>/<acak>.webp`
+- Sampul selalu dikodekan ulang ke WebP kualitas 85, sehingga metadata dan muatan tersembunyi terbuang. Gambar yang lebih besar diperkecil agar muat dalam 1600×1600 px. Sampul lama dihapus saat diganti.
 - File ZIP lama **tidak boleh dihapus** selama masih dirujuk oleh `order_items.archive_path`. Pembeli tetap mengunduh versi yang mereka beli walaupun penjual sudah mengganti ZIP-nya.
 - Menghapus template sama dengan mengarsipkannya (`deleted_at`). Pembelian lama tidak terpengaruh.
 
@@ -341,11 +351,11 @@ Percobaan pembayaran: `pending` → `ready` → `paid` / `closed` / `refunded`, 
 
 | Layar | Isi dan tindakan |
 |---|---|
-| Ringkasan | Toko menunggu moderasi, template perlu ditinjau, total rupiah pencairan menunggu transfer, pesanan perlu rekonsiliasi (`review`) |
+| Ringkasan | Template tayang, draft, jumlah kategori, pesanan perlu rekonsiliasi (`review`). Mode multivendor menambah toko menunggu moderasi, template perlu ditinjau, dan pencairan menunggu transfer |
 | Pengguna | Cari nama/email, filter peran. Aktifkan/nonaktifkan (tidak bisa untuk diri sendiri) |
 | Kategori | Tambah, ubah, hapus (ditolak jika masih dipakai template). Slug huruf kecil-angka-tanda hubung, unik |
 | Toko | Filter status. Lihat profil, setujui, tolak/hentikan dengan alasan |
-| Template | Filter status. Periksa detail dan unduh ZIP, setujui, tolak dengan alasan |
+| Template | Mode satu penjual (7.0): filter Semua/Tayang/Draft/Diarsipkan, cari judul atau teknologi, buat, ubah, unggah ZIP dan sampul, tayangkan, turunkan, arsipkan, pulihkan. Mode multivendor: periksa detail dan unduh ZIP, setujui, tolak dengan alasan |
 | Pesanan | Cari nomor/email, filter status. Detail item, percobaan pembayaran, dan status Midtrans |
 | Pencairan | Filter status. Lihat rekening (didekripsi), konfirmasi transfer dengan referensi, tolak dengan alasan |
 | Log audit | Waktu, admin (atau "Sistem"), tindakan, jenis, ID, catatan |
@@ -464,12 +474,14 @@ Semua endpoint admin, kecuali tiga endpoint TOTP, mensyaratkan `sessions.mfa_ver
 | GET | `/admin/users` · POST `/admin/users/{id}/toggle-active` |
 | GET, POST | `/admin/categories` · PUT, DELETE `/admin/categories/{id}` |
 | GET | `/admin/sellers` · `/admin/sellers/{id}` · POST `/approve` · POST `/reject` `{note}` |
-| GET | `/admin/templates` · `/admin/templates/{id}` · `/admin/templates/{id}/archive` · POST `/approve` · POST `/reject` `{note}` |
+| GET, POST | `/admin/templates` (`status`, `q`, `page`; 20 per halaman) · GET, PUT, DELETE `/admin/templates/{id}` · POST `/restore` · POST `/publish` · POST `/unpublish` |
+| GET, PUT | `/admin/templates/{id}/files/zip` (PUT dengan `?name=`) · GET, PUT `/admin/templates/{id}/files/cover` |
+| POST | Mode multivendor nanti: `/admin/templates/{id}/approve` · `/reject` `{note}` |
 | GET | `/admin/orders` · `/admin/orders/{number}` |
 | GET | `/admin/payouts` · `/admin/payouts/{id}` · POST `/mark-paid` `{reference}` · POST `/reject` `{note}` |
 | GET | `/admin/audit-logs` |
 
-Batas ukuran body di Caddy dan Go: 60 MB untuk endpoint upload, 1 MB untuk endpoint lain.
+Batas ukuran body ditegakkan Go: 50 MB untuk unggah ZIP, 2 MB untuk unggah sampul, 1 MB untuk endpoint lain. Caddy tidak membatasi ukuran body. Batas waktu baca untuk endpoint unggah diperpanjang menjadi 15 menit.
 
 ## 20. Daftar uji penerimaan
 
@@ -568,3 +580,7 @@ Dijawab pengguna pada 16 November 2026:
 1. **MFA admin:** ya, TOTP wajib untuk admin (bagian 4.4).
 2. **Domain:** `staging.jd-sign.com` dipasang lebih dulu di VPS `berdua-sg1`. `jd-sign.com` menyusul setelah staging teruji.
 3. **Repo GitHub:** `https://github.com/jefthah/jdsign`.
+
+Dijawab pengguna pada 21 November 2026:
+
+4. **Satu penjual dulu:** untuk sementara hanya JD Sign (admin) yang menjual. Template dikelola di panel admin tanpa moderasi (bagian 7.0). Toko, moderasi, komisi, dan pencairan ditunda; skema multivendor dipertahankan.

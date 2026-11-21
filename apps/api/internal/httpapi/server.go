@@ -20,8 +20,10 @@ import (
 	"github.com/jefthah/jdsign/apps/api/internal/google"
 	"github.com/jefthah/jdsign/apps/api/internal/mail"
 	"github.com/jefthah/jdsign/apps/api/internal/ratelimit"
+	"github.com/jefthah/jdsign/apps/api/internal/storage"
 )
 
+// maximumRequestBytes caps request bodies other than template uploads (see requestBodyLimit).
 const maximumRequestBytes = 1 << 20
 
 // DefaultAppURL is the Next.js development server, used when Settings.AppURL is empty.
@@ -43,6 +45,8 @@ type Settings struct {
 	Google google.Config
 	// Encryption seals admin authenticator secrets. Nil turns admin MFA, and so the admin area, off.
 	Encryption *encryption.Keyring
+	// Storage holds template ZIPs and covers. Nil refuses uploads with 503.
+	Storage *storage.Store
 }
 
 // Server implements the operations from api/openapi.yaml on top of PostgreSQL.
@@ -57,6 +61,9 @@ type Server struct {
 	secureCookies bool
 	google        google.Config
 	stateKey      []byte
+	storage       *storage.Store
+	// coverSlot lets one cover be decoded at a time; see UploadTemplateCover.
+	coverSlot chan struct{}
 }
 
 var _ StrictServerInterface = (*Server)(nil)
@@ -93,6 +100,8 @@ func NewServer(pool *pgxpool.Pool, logger *slog.Logger, settings Settings) *Serv
 		secureCookies: parsed.Scheme == "https",
 		google:        googleConfig,
 		stateKey:      stateKey.Sum(nil),
+		storage:       settings.Storage,
+		coverSlot:     make(chan struct{}, 1),
 	}
 	if pool != nil {
 		server.queries = sqlcdb.New(pool)
@@ -172,7 +181,7 @@ func withSafeguards(next http.Handler, logger *slog.Logger) http.Handler {
 
 		recorder.Header().Set("X-Content-Type-Options", "nosniff")
 		recorder.Header().Set("Cache-Control", "no-store")
-		r.Body = http.MaxBytesReader(recorder, r.Body, maximumRequestBytes)
+		r.Body = http.MaxBytesReader(recorder, r.Body, requestBodyLimit(r))
 
 		next.ServeHTTP(recorder, r)
 
@@ -188,6 +197,11 @@ type statusRecorder struct {
 func (r *statusRecorder) WriteHeader(status int) {
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
+}
+
+// Unwrap lets http.ResponseController reach the connection, e.g. to extend deadlines for uploads.
+func (r *statusRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {

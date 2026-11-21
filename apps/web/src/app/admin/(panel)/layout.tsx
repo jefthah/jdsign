@@ -4,10 +4,11 @@ import { Suspense, type ReactNode } from "react";
 import { AccountMenuSkeleton } from "@/components/account/account-menu";
 import { ShieldIcon } from "@/components/account/icons";
 import { TopbarAccount } from "@/components/account/topbar-account";
-import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminNav, AdminNavLinks } from "@/components/admin/admin-nav";
 import { Wordmark } from "@/components/auth/auth-shell";
 
 import "@/components/admin/admin.css";
+import "@/components/admin/catalog/catalog.css";
 
 /**
  * Shell for the admin panel, built on the account area's layout classes. Each
@@ -39,7 +40,9 @@ export default function AdminPanelLayout({ children }: { children: ReactNode }) 
             <strong>Panel admin</strong>
             <p>Sesi ini sudah diverifikasi dengan aplikasi authenticator.</p>
           </div>
-          <AdminNav />
+          <Suspense fallback={<AdminNavLinks pathname={null} />}>
+            <AdminNav />
+          </Suspense>
         </aside>
         <main className="acct-main">{children}</main>
       </div>

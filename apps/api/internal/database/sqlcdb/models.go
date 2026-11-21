@@ -161,6 +161,8 @@ type Template struct {
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
 	DeletedAt   pgtype.Timestamptz
+	ArchiveName pgtype.Text
+	ArchiveSize pgtype.Int8
 }
 
 type User struct {

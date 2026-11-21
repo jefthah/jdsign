@@ -11,7 +11,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
 )
@@ -31,6 +33,24 @@ func (e AccountRole) Valid() bool {
 	case Buyer:
 		return true
 	case Seller:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminTemplateStatus.
+const (
+	AdminTemplateStatusDraft     AdminTemplateStatus = "draft"
+	AdminTemplateStatusPublished AdminTemplateStatus = "published"
+)
+
+// Valid indicates whether the value is a known member of the AdminTemplateStatus enum.
+func (e AdminTemplateStatus) Valid() bool {
+	switch e {
+	case AdminTemplateStatusDraft:
+		return true
+	case AdminTemplateStatusPublished:
 		return true
 	default:
 		return false
@@ -73,6 +93,30 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
+// Defines values for ListAdminTemplatesParamsStatus.
+const (
+	ListAdminTemplatesParamsStatusActive    ListAdminTemplatesParamsStatus = "active"
+	ListAdminTemplatesParamsStatusArchived  ListAdminTemplatesParamsStatus = "archived"
+	ListAdminTemplatesParamsStatusDraft     ListAdminTemplatesParamsStatus = "draft"
+	ListAdminTemplatesParamsStatusPublished ListAdminTemplatesParamsStatus = "published"
+)
+
+// Valid indicates whether the value is a known member of the ListAdminTemplatesParamsStatus enum.
+func (e ListAdminTemplatesParamsStatus) Valid() bool {
+	switch e {
+	case ListAdminTemplatesParamsStatusActive:
+		return true
+	case ListAdminTemplatesParamsStatusArchived:
+		return true
+	case ListAdminTemplatesParamsStatusDraft:
+		return true
+	case ListAdminTemplatesParamsStatusPublished:
+		return true
+	default:
+		return false
+	}
+}
+
 // Account defines model for Account.
 type Account struct {
 	Email         string      `json:"email"`
@@ -84,6 +128,22 @@ type Account struct {
 
 // AccountRole defines model for Account.Role.
 type AccountRole string
+
+// AdminCategory defines model for AdminCategory.
+type AdminCategory struct {
+	Description *string `json:"description,omitempty"`
+	Id          int64   `json:"id"`
+	Name        string  `json:"name"`
+	Slug        string  `json:"slug"`
+
+	// TemplateCount Semua template di kategori ini, termasuk yang diarsipkan
+	TemplateCount int `json:"templateCount"`
+}
+
+// AdminCategoryList defines model for AdminCategoryList.
+type AdminCategoryList struct {
+	Data []AdminCategory `json:"data"`
+}
 
 // AdminMfaCode defines model for AdminMfaCode.
 type AdminMfaCode struct {
@@ -102,6 +162,12 @@ type AdminMfaSetup struct {
 
 // AdminOverview defines model for AdminOverview.
 type AdminOverview struct {
+	// Categories Jumlah kategori
+	Categories int `json:"categories"`
+
+	// DraftTemplates Template draft yang belum diarsipkan
+	DraftTemplates int `json:"draftTemplates"`
+
 	// OrdersInReview Pesanan perlu rekonsiliasi (status review)
 	OrdersInReview int `json:"ordersInReview"`
 
@@ -116,6 +182,42 @@ type AdminOverview struct {
 
 	// PendingTemplates Template perlu ditinjau
 	PendingTemplates int `json:"pendingTemplates"`
+
+	// PublishedTemplates Template tayang di situs
+	PublishedTemplates int `json:"publishedTemplates"`
+}
+
+// AdminTemplate defines model for AdminTemplate.
+type AdminTemplate struct {
+	Archived    bool                `json:"archived"`
+	ArchivedAt  *time.Time          `json:"archivedAt,omitempty"`
+	Category    Category            `json:"category"`
+	CreatedAt   time.Time           `json:"createdAt"`
+	Description string              `json:"description"`
+	HasCover    bool                `json:"hasCover"`
+	Id          int64               `json:"id"`
+	PreviewUrl  *string             `json:"previewUrl,omitempty"`
+	Price       int64               `json:"price"`
+	PublishedAt *time.Time          `json:"publishedAt,omitempty"`
+	Slug        string              `json:"slug"`
+	Status      AdminTemplateStatus `json:"status"`
+	Summary     string              `json:"summary"`
+	Technology  string              `json:"technology"`
+	Title       string              `json:"title"`
+	UpdatedAt   time.Time           `json:"updatedAt"`
+	Version     string              `json:"version"`
+	Zip         *TemplateZip        `json:"zip,omitempty"`
+}
+
+// AdminTemplateStatus defines model for AdminTemplate.Status.
+type AdminTemplateStatus string
+
+// AdminTemplateList defines model for AdminTemplateList.
+type AdminTemplateList struct {
+	Data    []AdminTemplate `json:"data"`
+	Page    int             `json:"page"`
+	PerPage int             `json:"perPage"`
+	Total   int             `json:"total"`
 }
 
 // Category defines model for Category.
@@ -124,6 +226,18 @@ type Category struct {
 	Id          int64   `json:"id"`
 	Name        string  `json:"name"`
 	Slug        string  `json:"slug"`
+}
+
+// CategoryInput defines model for CategoryInput.
+type CategoryInput struct {
+	// Description Maks. 255 karakter
+	Description *string `json:"description,omitempty"`
+
+	// Name 1–80 karakter
+	Name string `json:"name"`
+
+	// Slug Huruf kecil, angka, dan tanda hubung (maks. 100). Kosong berarti dibuat dari nama.
+	Slug *string `json:"slug,omitempty"`
 }
 
 // CategoryList defines model for CategoryList.
@@ -172,6 +286,40 @@ type LoginCodeStatus struct {
 	Sent bool `json:"sent"`
 }
 
+// TemplateInput defines model for TemplateInput.
+type TemplateInput struct {
+	CategoryId int64 `json:"categoryId"`
+
+	// Description 30–20.000 karakter, ditampilkan sebagai teks biasa
+	Description string `json:"description"`
+
+	// PreviewUrl Opsional, harus https://, maks. 500 karakter
+	PreviewUrl *string `json:"previewUrl,omitempty"`
+
+	// Price Rupiah utuh, Rp10.000–Rp100.000.000
+	Price int64 `json:"price"`
+
+	// Summary Maks. 240 karakter
+	Summary string `json:"summary"`
+
+	// Technology Maks. 80 karakter, misalnya Next.js + Tailwind
+	Technology string `json:"technology"`
+
+	// Title Maks. 160 karakter
+	Title string `json:"title"`
+
+	// Version Maks. 40 karakter, misalnya 1.0.0
+	Version string `json:"version"`
+}
+
+// TemplateZip defines model for TemplateZip.
+type TemplateZip struct {
+	Name string `json:"name"`
+
+	// Size Ukuran dalam byte
+	Size int64 `json:"size"`
+}
+
 // VerifyLoginCodeRequest defines model for VerifyLoginCodeRequest.
 type VerifyLoginCodeRequest struct {
 	// Code Example: 482913
@@ -180,14 +328,23 @@ type VerifyLoginCodeRequest struct {
 	Remember *bool  `json:"remember,omitempty"`
 }
 
+// ResourceId defines model for ResourceId.
+type ResourceId = int64
+
 // Conflict defines model for Conflict.
 type Conflict = Error
 
 // Forbidden defines model for Forbidden.
 type Forbidden = Error
 
+// NotFound defines model for NotFound.
+type NotFound = Error
+
 // ServiceUnavailable defines model for ServiceUnavailable.
 type ServiceUnavailable = Error
+
+// TooLarge defines model for TooLarge.
+type TooLarge = Error
 
 // TooManyRequests defines model for TooManyRequests.
 type TooManyRequests = Error
@@ -197,6 +354,25 @@ type Unauthorized = Error
 
 // ValidationFailed defines model for ValidationFailed.
 type ValidationFailed = Error
+
+// ListAdminTemplatesParams defines parameters for ListAdminTemplates.
+type ListAdminTemplatesParams struct {
+	// Status active (belum diarsipkan, bawaan), published, draft, atau archived
+	Status *ListAdminTemplatesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Q Dicocokkan pada judul atau teknologi, tanpa membedakan huruf besar/kecil
+	Q    *string `form:"q,omitempty" json:"q,omitempty"`
+	Page *int    `form:"page,omitempty" json:"page,omitempty"`
+}
+
+// ListAdminTemplatesParamsStatus defines parameters for ListAdminTemplates.
+type ListAdminTemplatesParamsStatus string
+
+// UploadTemplateZipParams defines parameters for UploadTemplateZip.
+type UploadTemplateZipParams struct {
+	// Name Nama file asli, hanya untuk ditampilkan
+	Name *string `form:"name,omitempty" json:"name,omitempty"`
+}
 
 // StartGoogleLoginParams defines parameters for StartGoogleLogin.
 type StartGoogleLoginParams struct {
@@ -211,11 +387,23 @@ type FinishGoogleLoginParams struct {
 	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
 
+// CreateCategoryJSONRequestBody defines body for CreateCategory for application/json ContentType.
+type CreateCategoryJSONRequestBody = CategoryInput
+
+// UpdateCategoryJSONRequestBody defines body for UpdateCategory for application/json ContentType.
+type UpdateCategoryJSONRequestBody = CategoryInput
+
 // ConfirmAdminMfaSetupJSONRequestBody defines body for ConfirmAdminMfaSetup for application/json ContentType.
 type ConfirmAdminMfaSetupJSONRequestBody = AdminMfaCode
 
 // VerifyAdminMfaJSONRequestBody defines body for VerifyAdminMfa for application/json ContentType.
 type VerifyAdminMfaJSONRequestBody = AdminMfaCode
+
+// CreateTemplateJSONRequestBody defines body for CreateTemplate for application/json ContentType.
+type CreateTemplateJSONRequestBody = TemplateInput
+
+// UpdateTemplateJSONRequestBody defines body for UpdateTemplate for application/json ContentType.
+type UpdateTemplateJSONRequestBody = TemplateInput
 
 // RequestLoginCodeJSONRequestBody defines body for RequestLoginCode for application/json ContentType.
 type RequestLoginCodeJSONRequestBody = LoginCodeRequest
@@ -225,6 +413,18 @@ type VerifyLoginCodeJSONRequestBody = VerifyLoginCodeRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListAdminCategories Semua kategori beserta jumlah templatenya
+	// (GET /admin/categories)
+	ListAdminCategories(w http.ResponseWriter, r *http.Request)
+	// CreateCategory Membuat kategori
+	// (POST /admin/categories)
+	CreateCategory(w http.ResponseWriter, r *http.Request)
+	// DeleteCategory Menghapus kategori yang tidak dipakai template mana pun
+	// (DELETE /admin/categories/{id})
+	DeleteCategory(w http.ResponseWriter, r *http.Request, id ResourceId)
+	// UpdateCategory Mengubah kategori
+	// (PUT /admin/categories/{id})
+	UpdateCategory(w http.ResponseWriter, r *http.Request, id ResourceId)
 	// GetAdminMfaSetup Rahasia dan URI QR untuk memasang aplikasi authenticator
 	// (GET /admin/mfa/setup)
 	GetAdminMfaSetup(w http.ResponseWriter, r *http.Request)
@@ -237,6 +437,42 @@ type ServerInterface interface {
 	// GetAdminOverview Ringkasan pekerjaan admin yang menunggu
 	// (GET /admin/overview)
 	GetAdminOverview(w http.ResponseWriter, r *http.Request)
+	// ListAdminTemplates Template untuk dikelola admin, terbaru diubah lebih dulu, 20 per halaman
+	// (GET /admin/templates)
+	ListAdminTemplates(w http.ResponseWriter, r *http.Request, params ListAdminTemplatesParams)
+	// CreateTemplate Membuat template baru sebagai draft
+	// (POST /admin/templates)
+	CreateTemplate(w http.ResponseWriter, r *http.Request)
+	// ArchiveTemplate Mengarsipkan template
+	// (DELETE /admin/templates/{id})
+	ArchiveTemplate(w http.ResponseWriter, r *http.Request, id ResourceId)
+	// GetAdminTemplate Satu template, termasuk yang diarsipkan
+	// (GET /admin/templates/{id})
+	GetAdminTemplate(w http.ResponseWriter, r *http.Request, id ResourceId)
+	// UpdateTemplate Mengubah isi template tanpa mengubah statusnya
+	// (PUT /admin/templates/{id})
+	UpdateTemplate(w http.ResponseWriter, r *http.Request, id ResourceId)
+	// GetAdminTemplateCover Sampul template (WebP) untuk pratinjau di panel admin
+	// (GET /admin/templates/{id}/files/cover)
+	GetAdminTemplateCover(w http.ResponseWriter, r *http.Request, id ResourceId)
+	// UploadTemplateCover Mengunggah atau mengganti sampul template
+	// (PUT /admin/templates/{id}/files/cover)
+	UploadTemplateCover(w http.ResponseWriter, r *http.Request, id ResourceId)
+	// DownloadAdminTemplateZip Mengunduh ZIP terbaru untuk diperiksa, dengan nama review-<slug>.zip
+	// (GET /admin/templates/{id}/files/zip)
+	DownloadAdminTemplateZip(w http.ResponseWriter, r *http.Request, id ResourceId)
+	// UploadTemplateZip Mengunggah atau mengganti file ZIP template
+	// (PUT /admin/templates/{id}/files/zip)
+	UploadTemplateZip(w http.ResponseWriter, r *http.Request, id ResourceId, params UploadTemplateZipParams)
+	// PublishTemplate Menayangkan template di situs
+	// (POST /admin/templates/{id}/publish)
+	PublishTemplate(w http.ResponseWriter, r *http.Request, id ResourceId)
+	// RestoreTemplate Memulihkan template yang diarsipkan sebagai draft
+	// (POST /admin/templates/{id}/restore)
+	RestoreTemplate(w http.ResponseWriter, r *http.Request, id ResourceId)
+	// UnpublishTemplate Menurunkan template dari situs menjadi draft
+	// (POST /admin/templates/{id}/unpublish)
+	UnpublishTemplate(w http.ResponseWriter, r *http.Request, id ResourceId)
 	// RequestLoginCode Mengirim kode masuk 6 digit ke email
 	// (POST /auth/code)
 	RequestLoginCode(w http.ResponseWriter, r *http.Request)
@@ -271,6 +507,86 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListAdminCategories operation middleware
+func (siw *ServerInterfaceWrapper) ListAdminCategories(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAdminCategories(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateCategory operation middleware
+func (siw *ServerInterfaceWrapper) CreateCategory(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateCategory(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteCategory operation middleware
+func (siw *ServerInterfaceWrapper) DeleteCategory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteCategory(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateCategory operation middleware
+func (siw *ServerInterfaceWrapper) UpdateCategory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateCategory(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetAdminMfaSetup operation middleware
 func (siw *ServerInterfaceWrapper) GetAdminMfaSetup(w http.ResponseWriter, r *http.Request) {
@@ -319,6 +635,355 @@ func (siw *ServerInterfaceWrapper) GetAdminOverview(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdminOverview(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAdminTemplates operation middleware
+func (siw *ServerInterfaceWrapper) ListAdminTemplates(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAdminTemplatesParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAdminTemplates(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTemplate operation middleware
+func (siw *ServerInterfaceWrapper) CreateTemplate(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTemplate(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ArchiveTemplate operation middleware
+func (siw *ServerInterfaceWrapper) ArchiveTemplate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ArchiveTemplate(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminTemplate operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminTemplate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminTemplate(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateTemplate operation middleware
+func (siw *ServerInterfaceWrapper) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateTemplate(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminTemplateCover operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminTemplateCover(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminTemplateCover(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadTemplateCover operation middleware
+func (siw *ServerInterfaceWrapper) UploadTemplateCover(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadTemplateCover(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadAdminTemplateZip operation middleware
+func (siw *ServerInterfaceWrapper) DownloadAdminTemplateZip(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadAdminTemplateZip(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadTemplateZip operation middleware
+func (siw *ServerInterfaceWrapper) UploadTemplateZip(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UploadTemplateZipParams
+
+	// ------------- Optional query parameter "name" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "name", r.URL.Query(), &params.Name, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "name"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadTemplateZip(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PublishTemplate operation middleware
+func (siw *ServerInterfaceWrapper) PublishTemplate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PublishTemplate(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RestoreTemplate operation middleware
+func (siw *ServerInterfaceWrapper) RestoreTemplate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RestoreTemplate(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnpublishTemplate operation middleware
+func (siw *ServerInterfaceWrapper) UnpublishTemplate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ResourceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnpublishTemplate(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -636,6 +1301,22 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/mfa/setup", wrapper.ConfirmAdminMfaSetup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/mfa/verify", wrapper.VerifyAdminMfa)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/overview", wrapper.GetAdminOverview)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/categories", wrapper.ListAdminCategories)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/categories", wrapper.CreateCategory)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/categories/{id}", wrapper.DeleteCategory)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/admin/categories/{id}", wrapper.UpdateCategory)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/templates", wrapper.ListAdminTemplates)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/templates", wrapper.CreateTemplate)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/templates/{id}", wrapper.ArchiveTemplate)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/templates/{id}", wrapper.GetAdminTemplate)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/admin/templates/{id}", wrapper.UpdateTemplate)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/templates/{id}/restore", wrapper.RestoreTemplate)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/templates/{id}/publish", wrapper.PublishTemplate)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/templates/{id}/unpublish", wrapper.UnpublishTemplate)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/templates/{id}/files/zip", wrapper.DownloadAdminTemplateZip)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/admin/templates/{id}/files/zip", wrapper.UploadTemplateZip)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/templates/{id}/files/cover", wrapper.GetAdminTemplateCover)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/admin/templates/{id}/files/cover", wrapper.UploadTemplateCover)
 
 	return m
 }
@@ -646,6 +1327,8 @@ type ErrorJSONResponse Error
 
 type ForbiddenJSONResponse Error
 
+type NotFoundJSONResponse Error
+
 type RedirectResponseHeaders struct {
 	Location string
 }
@@ -654,6 +1337,8 @@ type RedirectResponse struct {
 }
 
 type ServiceUnavailableJSONResponse Error
+
+type TooLargeJSONResponse Error
 
 type TooManyRequestsResponseHeaders struct {
 	RetryAfter *int
@@ -667,6 +1352,366 @@ type TooManyRequestsJSONResponse struct {
 type UnauthorizedJSONResponse Error
 
 type ValidationFailedJSONResponse Error
+
+type ListAdminCategoriesRequestObject struct {
+}
+
+type ListAdminCategoriesResponseObject interface {
+	VisitListAdminCategoriesResponse(w http.ResponseWriter) error
+}
+
+type ListAdminCategories200JSONResponse AdminCategoryList
+
+func (response ListAdminCategories200JSONResponse) VisitListAdminCategoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAdminCategories401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListAdminCategories401JSONResponse) VisitListAdminCategoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAdminCategories403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListAdminCategories403JSONResponse) VisitListAdminCategoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAdminCategoriesdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListAdminCategoriesdefaultJSONResponse) VisitListAdminCategoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCategoryRequestObject struct {
+	Body *CreateCategoryJSONRequestBody
+}
+
+type CreateCategoryResponseObject interface {
+	VisitCreateCategoryResponse(w http.ResponseWriter) error
+}
+
+type CreateCategory201JSONResponse AdminCategory
+
+func (response CreateCategory201JSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCategory401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateCategory401JSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCategory403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateCategory403JSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCategory409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateCategory409JSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCategory422JSONResponse struct{ ValidationFailedJSONResponse }
+
+func (response CreateCategory422JSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCategorydefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateCategorydefaultJSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCategoryRequestObject struct {
+	Id ResourceId `json:"id"`
+}
+
+type DeleteCategoryResponseObject interface {
+	VisitDeleteCategoryResponse(w http.ResponseWriter) error
+}
+
+type DeleteCategory204Response struct {
+}
+
+func (response DeleteCategory204Response) VisitDeleteCategoryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteCategory401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteCategory401JSONResponse) VisitDeleteCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCategory403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteCategory403JSONResponse) VisitDeleteCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCategory404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteCategory404JSONResponse) VisitDeleteCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCategory409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteCategory409JSONResponse) VisitDeleteCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCategorydefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DeleteCategorydefaultJSONResponse) VisitDeleteCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCategoryRequestObject struct {
+	Id   ResourceId `json:"id"`
+	Body *UpdateCategoryJSONRequestBody
+}
+
+type UpdateCategoryResponseObject interface {
+	VisitUpdateCategoryResponse(w http.ResponseWriter) error
+}
+
+type UpdateCategory200JSONResponse AdminCategory
+
+func (response UpdateCategory200JSONResponse) VisitUpdateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCategory401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateCategory401JSONResponse) VisitUpdateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCategory403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateCategory403JSONResponse) VisitUpdateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCategory404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateCategory404JSONResponse) VisitUpdateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCategory409JSONResponse struct{ ConflictJSONResponse }
+
+func (response UpdateCategory409JSONResponse) VisitUpdateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCategory422JSONResponse struct{ ValidationFailedJSONResponse }
+
+func (response UpdateCategory422JSONResponse) VisitUpdateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCategorydefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UpdateCategorydefaultJSONResponse) VisitUpdateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type GetAdminMfaSetupRequestObject struct {
 }
@@ -1068,6 +2113,1140 @@ func (response GetAdminOverviewdefaultJSONResponse) VisitGetAdminOverviewRespons
 	return err
 }
 
+type ListAdminTemplatesRequestObject struct {
+	Params ListAdminTemplatesParams
+}
+
+type ListAdminTemplatesResponseObject interface {
+	VisitListAdminTemplatesResponse(w http.ResponseWriter) error
+}
+
+type ListAdminTemplates200JSONResponse AdminTemplateList
+
+func (response ListAdminTemplates200JSONResponse) VisitListAdminTemplatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAdminTemplates401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListAdminTemplates401JSONResponse) VisitListAdminTemplatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAdminTemplates403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListAdminTemplates403JSONResponse) VisitListAdminTemplatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAdminTemplatesdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListAdminTemplatesdefaultJSONResponse) VisitListAdminTemplatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTemplateRequestObject struct {
+	Body *CreateTemplateJSONRequestBody
+}
+
+type CreateTemplateResponseObject interface {
+	VisitCreateTemplateResponse(w http.ResponseWriter) error
+}
+
+type CreateTemplate201JSONResponse AdminTemplate
+
+func (response CreateTemplate201JSONResponse) VisitCreateTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTemplate401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateTemplate401JSONResponse) VisitCreateTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTemplate403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateTemplate403JSONResponse) VisitCreateTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTemplate422JSONResponse struct{ ValidationFailedJSONResponse }
+
+func (response CreateTemplate422JSONResponse) VisitCreateTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTemplatedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateTemplatedefaultJSONResponse) VisitCreateTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveTemplateRequestObject struct {
+	Id ResourceId `json:"id"`
+}
+
+type ArchiveTemplateResponseObject interface {
+	VisitArchiveTemplateResponse(w http.ResponseWriter) error
+}
+
+type ArchiveTemplate200JSONResponse AdminTemplate
+
+func (response ArchiveTemplate200JSONResponse) VisitArchiveTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveTemplate401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ArchiveTemplate401JSONResponse) VisitArchiveTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveTemplate403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ArchiveTemplate403JSONResponse) VisitArchiveTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveTemplate404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ArchiveTemplate404JSONResponse) VisitArchiveTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveTemplatedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ArchiveTemplatedefaultJSONResponse) VisitArchiveTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTemplateRequestObject struct {
+	Id ResourceId `json:"id"`
+}
+
+type GetAdminTemplateResponseObject interface {
+	VisitGetAdminTemplateResponse(w http.ResponseWriter) error
+}
+
+type GetAdminTemplate200JSONResponse AdminTemplate
+
+func (response GetAdminTemplate200JSONResponse) VisitGetAdminTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTemplate401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminTemplate401JSONResponse) VisitGetAdminTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTemplate403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminTemplate403JSONResponse) VisitGetAdminTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTemplate404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAdminTemplate404JSONResponse) VisitGetAdminTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTemplatedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetAdminTemplatedefaultJSONResponse) VisitGetAdminTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTemplateRequestObject struct {
+	Id   ResourceId `json:"id"`
+	Body *UpdateTemplateJSONRequestBody
+}
+
+type UpdateTemplateResponseObject interface {
+	VisitUpdateTemplateResponse(w http.ResponseWriter) error
+}
+
+type UpdateTemplate200JSONResponse AdminTemplate
+
+func (response UpdateTemplate200JSONResponse) VisitUpdateTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTemplate401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateTemplate401JSONResponse) VisitUpdateTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTemplate403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateTemplate403JSONResponse) VisitUpdateTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTemplate404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateTemplate404JSONResponse) VisitUpdateTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTemplate409JSONResponse struct{ ConflictJSONResponse }
+
+func (response UpdateTemplate409JSONResponse) VisitUpdateTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTemplate422JSONResponse struct{ ValidationFailedJSONResponse }
+
+func (response UpdateTemplate422JSONResponse) VisitUpdateTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTemplatedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UpdateTemplatedefaultJSONResponse) VisitUpdateTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTemplateCoverRequestObject struct {
+	Id ResourceId `json:"id"`
+}
+
+type GetAdminTemplateCoverResponseObject interface {
+	VisitGetAdminTemplateCoverResponse(w http.ResponseWriter) error
+}
+
+type GetAdminTemplateCover200ImagewebpResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetAdminTemplateCover200ImagewebpResponse) VisitGetAdminTemplateCoverResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "image/webp")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetAdminTemplateCover401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminTemplateCover401JSONResponse) VisitGetAdminTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTemplateCover403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminTemplateCover403JSONResponse) VisitGetAdminTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTemplateCover404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAdminTemplateCover404JSONResponse) VisitGetAdminTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTemplateCoverdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetAdminTemplateCoverdefaultJSONResponse) VisitGetAdminTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateCoverRequestObject struct {
+	Id   ResourceId `json:"id"`
+	Body io.Reader
+}
+
+type UploadTemplateCoverResponseObject interface {
+	VisitUploadTemplateCoverResponse(w http.ResponseWriter) error
+}
+
+type UploadTemplateCover200JSONResponse AdminTemplate
+
+func (response UploadTemplateCover200JSONResponse) VisitUploadTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateCover401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UploadTemplateCover401JSONResponse) VisitUploadTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateCover403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UploadTemplateCover403JSONResponse) VisitUploadTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateCover404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UploadTemplateCover404JSONResponse) VisitUploadTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateCover409JSONResponse struct{ ConflictJSONResponse }
+
+func (response UploadTemplateCover409JSONResponse) VisitUploadTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateCover413JSONResponse struct{ TooLargeJSONResponse }
+
+func (response UploadTemplateCover413JSONResponse) VisitUploadTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateCover422JSONResponse struct{ ValidationFailedJSONResponse }
+
+func (response UploadTemplateCover422JSONResponse) VisitUploadTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateCover503JSONResponse struct{ ServiceUnavailableJSONResponse }
+
+func (response UploadTemplateCover503JSONResponse) VisitUploadTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateCoverdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UploadTemplateCoverdefaultJSONResponse) VisitUploadTemplateCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadAdminTemplateZipRequestObject struct {
+	Id ResourceId `json:"id"`
+}
+
+type DownloadAdminTemplateZipResponseObject interface {
+	VisitDownloadAdminTemplateZipResponse(w http.ResponseWriter) error
+}
+
+type DownloadAdminTemplateZip200ResponseHeaders struct {
+	ContentDisposition string
+}
+
+type DownloadAdminTemplateZip200ApplicationzipResponse struct {
+	Body          io.Reader
+	Headers       DownloadAdminTemplateZip200ResponseHeaders
+	ContentLength int64
+}
+
+func (response DownloadAdminTemplateZip200ApplicationzipResponse) VisitDownloadAdminTemplateZipResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/zip")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.Header().Set("Content-Disposition", fmt.Sprint(response.Headers.ContentDisposition))
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadAdminTemplateZip401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DownloadAdminTemplateZip401JSONResponse) VisitDownloadAdminTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadAdminTemplateZip403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DownloadAdminTemplateZip403JSONResponse) VisitDownloadAdminTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadAdminTemplateZip404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DownloadAdminTemplateZip404JSONResponse) VisitDownloadAdminTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadAdminTemplateZipdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DownloadAdminTemplateZipdefaultJSONResponse) VisitDownloadAdminTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateZipRequestObject struct {
+	Id     ResourceId `json:"id"`
+	Params UploadTemplateZipParams
+	Body   io.Reader
+}
+
+type UploadTemplateZipResponseObject interface {
+	VisitUploadTemplateZipResponse(w http.ResponseWriter) error
+}
+
+type UploadTemplateZip200JSONResponse AdminTemplate
+
+func (response UploadTemplateZip200JSONResponse) VisitUploadTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateZip401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UploadTemplateZip401JSONResponse) VisitUploadTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateZip403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UploadTemplateZip403JSONResponse) VisitUploadTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateZip404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UploadTemplateZip404JSONResponse) VisitUploadTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateZip409JSONResponse struct{ ConflictJSONResponse }
+
+func (response UploadTemplateZip409JSONResponse) VisitUploadTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateZip413JSONResponse struct{ TooLargeJSONResponse }
+
+func (response UploadTemplateZip413JSONResponse) VisitUploadTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateZip422JSONResponse struct{ ValidationFailedJSONResponse }
+
+func (response UploadTemplateZip422JSONResponse) VisitUploadTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateZip503JSONResponse struct{ ServiceUnavailableJSONResponse }
+
+func (response UploadTemplateZip503JSONResponse) VisitUploadTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadTemplateZipdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UploadTemplateZipdefaultJSONResponse) VisitUploadTemplateZipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishTemplateRequestObject struct {
+	Id ResourceId `json:"id"`
+}
+
+type PublishTemplateResponseObject interface {
+	VisitPublishTemplateResponse(w http.ResponseWriter) error
+}
+
+type PublishTemplate200JSONResponse AdminTemplate
+
+func (response PublishTemplate200JSONResponse) VisitPublishTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishTemplate401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PublishTemplate401JSONResponse) VisitPublishTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishTemplate403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PublishTemplate403JSONResponse) VisitPublishTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishTemplate404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PublishTemplate404JSONResponse) VisitPublishTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishTemplate409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PublishTemplate409JSONResponse) VisitPublishTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PublishTemplatedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response PublishTemplatedefaultJSONResponse) VisitPublishTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestoreTemplateRequestObject struct {
+	Id ResourceId `json:"id"`
+}
+
+type RestoreTemplateResponseObject interface {
+	VisitRestoreTemplateResponse(w http.ResponseWriter) error
+}
+
+type RestoreTemplate200JSONResponse AdminTemplate
+
+func (response RestoreTemplate200JSONResponse) VisitRestoreTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestoreTemplate401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RestoreTemplate401JSONResponse) VisitRestoreTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestoreTemplate403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RestoreTemplate403JSONResponse) VisitRestoreTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestoreTemplate404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RestoreTemplate404JSONResponse) VisitRestoreTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestoreTemplatedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RestoreTemplatedefaultJSONResponse) VisitRestoreTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnpublishTemplateRequestObject struct {
+	Id ResourceId `json:"id"`
+}
+
+type UnpublishTemplateResponseObject interface {
+	VisitUnpublishTemplateResponse(w http.ResponseWriter) error
+}
+
+type UnpublishTemplate200JSONResponse AdminTemplate
+
+func (response UnpublishTemplate200JSONResponse) VisitUnpublishTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnpublishTemplate401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UnpublishTemplate401JSONResponse) VisitUnpublishTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnpublishTemplate403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UnpublishTemplate403JSONResponse) VisitUnpublishTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnpublishTemplate404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UnpublishTemplate404JSONResponse) VisitUnpublishTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnpublishTemplatedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UnpublishTemplatedefaultJSONResponse) VisitUnpublishTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RequestLoginCodeRequestObject struct {
 	Body *RequestLoginCodeJSONRequestBody
 }
@@ -1441,6 +3620,18 @@ func (response GetMedefaultJSONResponse) VisitGetMeResponse(w http.ResponseWrite
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// ListAdminCategories Semua kategori beserta jumlah templatenya
+	// (GET /admin/categories)
+	ListAdminCategories(ctx context.Context, request ListAdminCategoriesRequestObject) (ListAdminCategoriesResponseObject, error)
+	// CreateCategory Membuat kategori
+	// (POST /admin/categories)
+	CreateCategory(ctx context.Context, request CreateCategoryRequestObject) (CreateCategoryResponseObject, error)
+	// DeleteCategory Menghapus kategori yang tidak dipakai template mana pun
+	// (DELETE /admin/categories/{id})
+	DeleteCategory(ctx context.Context, request DeleteCategoryRequestObject) (DeleteCategoryResponseObject, error)
+	// UpdateCategory Mengubah kategori
+	// (PUT /admin/categories/{id})
+	UpdateCategory(ctx context.Context, request UpdateCategoryRequestObject) (UpdateCategoryResponseObject, error)
 	// GetAdminMfaSetup Rahasia dan URI QR untuk memasang aplikasi authenticator
 	// (GET /admin/mfa/setup)
 	GetAdminMfaSetup(ctx context.Context, request GetAdminMfaSetupRequestObject) (GetAdminMfaSetupResponseObject, error)
@@ -1453,6 +3644,42 @@ type StrictServerInterface interface {
 	// GetAdminOverview Ringkasan pekerjaan admin yang menunggu
 	// (GET /admin/overview)
 	GetAdminOverview(ctx context.Context, request GetAdminOverviewRequestObject) (GetAdminOverviewResponseObject, error)
+	// ListAdminTemplates Template untuk dikelola admin, terbaru diubah lebih dulu, 20 per halaman
+	// (GET /admin/templates)
+	ListAdminTemplates(ctx context.Context, request ListAdminTemplatesRequestObject) (ListAdminTemplatesResponseObject, error)
+	// CreateTemplate Membuat template baru sebagai draft
+	// (POST /admin/templates)
+	CreateTemplate(ctx context.Context, request CreateTemplateRequestObject) (CreateTemplateResponseObject, error)
+	// ArchiveTemplate Mengarsipkan template
+	// (DELETE /admin/templates/{id})
+	ArchiveTemplate(ctx context.Context, request ArchiveTemplateRequestObject) (ArchiveTemplateResponseObject, error)
+	// GetAdminTemplate Satu template, termasuk yang diarsipkan
+	// (GET /admin/templates/{id})
+	GetAdminTemplate(ctx context.Context, request GetAdminTemplateRequestObject) (GetAdminTemplateResponseObject, error)
+	// UpdateTemplate Mengubah isi template tanpa mengubah statusnya
+	// (PUT /admin/templates/{id})
+	UpdateTemplate(ctx context.Context, request UpdateTemplateRequestObject) (UpdateTemplateResponseObject, error)
+	// GetAdminTemplateCover Sampul template (WebP) untuk pratinjau di panel admin
+	// (GET /admin/templates/{id}/files/cover)
+	GetAdminTemplateCover(ctx context.Context, request GetAdminTemplateCoverRequestObject) (GetAdminTemplateCoverResponseObject, error)
+	// UploadTemplateCover Mengunggah atau mengganti sampul template
+	// (PUT /admin/templates/{id}/files/cover)
+	UploadTemplateCover(ctx context.Context, request UploadTemplateCoverRequestObject) (UploadTemplateCoverResponseObject, error)
+	// DownloadAdminTemplateZip Mengunduh ZIP terbaru untuk diperiksa, dengan nama review-<slug>.zip
+	// (GET /admin/templates/{id}/files/zip)
+	DownloadAdminTemplateZip(ctx context.Context, request DownloadAdminTemplateZipRequestObject) (DownloadAdminTemplateZipResponseObject, error)
+	// UploadTemplateZip Mengunggah atau mengganti file ZIP template
+	// (PUT /admin/templates/{id}/files/zip)
+	UploadTemplateZip(ctx context.Context, request UploadTemplateZipRequestObject) (UploadTemplateZipResponseObject, error)
+	// PublishTemplate Menayangkan template di situs
+	// (POST /admin/templates/{id}/publish)
+	PublishTemplate(ctx context.Context, request PublishTemplateRequestObject) (PublishTemplateResponseObject, error)
+	// RestoreTemplate Memulihkan template yang diarsipkan sebagai draft
+	// (POST /admin/templates/{id}/restore)
+	RestoreTemplate(ctx context.Context, request RestoreTemplateRequestObject) (RestoreTemplateResponseObject, error)
+	// UnpublishTemplate Menurunkan template dari situs menjadi draft
+	// (POST /admin/templates/{id}/unpublish)
+	UnpublishTemplate(ctx context.Context, request UnpublishTemplateRequestObject) (UnpublishTemplateResponseObject, error)
 	// RequestLoginCode Mengirim kode masuk 6 digit ke email
 	// (POST /auth/code)
 	RequestLoginCode(ctx context.Context, request RequestLoginCodeRequestObject) (RequestLoginCodeResponseObject, error)
@@ -1516,6 +3743,120 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// ListAdminCategories operation middleware
+func (sh *strictHandler) ListAdminCategories(w http.ResponseWriter, r *http.Request) {
+	var request ListAdminCategoriesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAdminCategories(ctx, request.(ListAdminCategoriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAdminCategories")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAdminCategoriesResponseObject); ok {
+		if err := validResponse.VisitListAdminCategoriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateCategory operation middleware
+func (sh *strictHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
+	var request CreateCategoryRequestObject
+
+	var body CreateCategoryJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateCategory(ctx, request.(CreateCategoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateCategory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateCategoryResponseObject); ok {
+		if err := validResponse.VisitCreateCategoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteCategory operation middleware
+func (sh *strictHandler) DeleteCategory(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request DeleteCategoryRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteCategory(ctx, request.(DeleteCategoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteCategory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteCategoryResponseObject); ok {
+		if err := validResponse.VisitDeleteCategoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateCategory operation middleware
+func (sh *strictHandler) UpdateCategory(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request UpdateCategoryRequestObject
+
+	request.Id = id
+
+	var body UpdateCategoryJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateCategory(ctx, request.(UpdateCategoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateCategory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateCategoryResponseObject); ok {
+		if err := validResponse.VisitUpdateCategoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // GetAdminMfaSetup operation middleware
@@ -1621,6 +3962,335 @@ func (sh *strictHandler) GetAdminOverview(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdminOverviewResponseObject); ok {
 		if err := validResponse.VisitGetAdminOverviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAdminTemplates operation middleware
+func (sh *strictHandler) ListAdminTemplates(w http.ResponseWriter, r *http.Request, params ListAdminTemplatesParams) {
+	var request ListAdminTemplatesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAdminTemplates(ctx, request.(ListAdminTemplatesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAdminTemplates")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAdminTemplatesResponseObject); ok {
+		if err := validResponse.VisitListAdminTemplatesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateTemplate operation middleware
+func (sh *strictHandler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
+	var request CreateTemplateRequestObject
+
+	var body CreateTemplateJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateTemplate(ctx, request.(CreateTemplateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateTemplate")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateTemplateResponseObject); ok {
+		if err := validResponse.VisitCreateTemplateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ArchiveTemplate operation middleware
+func (sh *strictHandler) ArchiveTemplate(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request ArchiveTemplateRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ArchiveTemplate(ctx, request.(ArchiveTemplateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ArchiveTemplate")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ArchiveTemplateResponseObject); ok {
+		if err := validResponse.VisitArchiveTemplateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminTemplate operation middleware
+func (sh *strictHandler) GetAdminTemplate(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request GetAdminTemplateRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminTemplate(ctx, request.(GetAdminTemplateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminTemplate")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminTemplateResponseObject); ok {
+		if err := validResponse.VisitGetAdminTemplateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateTemplate operation middleware
+func (sh *strictHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request UpdateTemplateRequestObject
+
+	request.Id = id
+
+	var body UpdateTemplateJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateTemplate(ctx, request.(UpdateTemplateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateTemplate")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateTemplateResponseObject); ok {
+		if err := validResponse.VisitUpdateTemplateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminTemplateCover operation middleware
+func (sh *strictHandler) GetAdminTemplateCover(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request GetAdminTemplateCoverRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminTemplateCover(ctx, request.(GetAdminTemplateCoverRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminTemplateCover")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminTemplateCoverResponseObject); ok {
+		if err := validResponse.VisitGetAdminTemplateCoverResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UploadTemplateCover operation middleware
+func (sh *strictHandler) UploadTemplateCover(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request UploadTemplateCoverRequestObject
+
+	request.Id = id
+
+	request.Body = r.Body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadTemplateCover(ctx, request.(UploadTemplateCoverRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadTemplateCover")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UploadTemplateCoverResponseObject); ok {
+		if err := validResponse.VisitUploadTemplateCoverResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DownloadAdminTemplateZip operation middleware
+func (sh *strictHandler) DownloadAdminTemplateZip(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request DownloadAdminTemplateZipRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadAdminTemplateZip(ctx, request.(DownloadAdminTemplateZipRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadAdminTemplateZip")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadAdminTemplateZipResponseObject); ok {
+		if err := validResponse.VisitDownloadAdminTemplateZipResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UploadTemplateZip operation middleware
+func (sh *strictHandler) UploadTemplateZip(w http.ResponseWriter, r *http.Request, id ResourceId, params UploadTemplateZipParams) {
+	var request UploadTemplateZipRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	request.Body = r.Body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadTemplateZip(ctx, request.(UploadTemplateZipRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadTemplateZip")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UploadTemplateZipResponseObject); ok {
+		if err := validResponse.VisitUploadTemplateZipResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PublishTemplate operation middleware
+func (sh *strictHandler) PublishTemplate(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request PublishTemplateRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PublishTemplate(ctx, request.(PublishTemplateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PublishTemplate")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PublishTemplateResponseObject); ok {
+		if err := validResponse.VisitPublishTemplateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RestoreTemplate operation middleware
+func (sh *strictHandler) RestoreTemplate(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request RestoreTemplateRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RestoreTemplate(ctx, request.(RestoreTemplateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RestoreTemplate")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RestoreTemplateResponseObject); ok {
+		if err := validResponse.VisitRestoreTemplateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnpublishTemplate operation middleware
+func (sh *strictHandler) UnpublishTemplate(w http.ResponseWriter, r *http.Request, id ResourceId) {
+	var request UnpublishTemplateRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnpublishTemplate(ctx, request.(UnpublishTemplateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnpublishTemplate")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnpublishTemplateResponseObject); ok {
+		if err := validResponse.VisitUnpublishTemplateResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

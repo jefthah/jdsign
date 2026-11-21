@@ -260,7 +260,443 @@ paths:
           $ref: "#/components/responses/Forbidden"
         default:
           $ref: "#/components/responses/Error"
+  /admin/categories:
+    get:
+      operationId: listAdminCategories
+      summary: Semua kategori beserta jumlah templatenya
+      responses:
+        "200":
+          description: Kategori, urut nama
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCategoryList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createCategory
+      summary: Membuat kategori
+      description: Slug dibuat dari nama jika dikosongkan. 409 `slug_taken` jika slug sudah dipakai.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Kategori dibuat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCategory"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        default:
+          $ref: "#/components/responses/Error"
+  /admin/categories/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    put:
+      operationId: updateCategory
+      summary: Mengubah kategori
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "200":
+          description: Kategori diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCategory"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteCategory
+      summary: Menghapus kategori yang tidak dipakai template mana pun
+      description: 409 `category_in_use` jika masih ada template, termasuk yang diarsipkan.
+      responses:
+        "204":
+          description: Kategori dihapus
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/Error"
+  /admin/templates:
+    get:
+      operationId: listAdminTemplates
+      summary: Template untuk dikelola admin, terbaru diubah lebih dulu, 20 per halaman
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: active (belum diarsipkan, bawaan), published, draft, atau archived
+          schema:
+            type: string
+            enum: [active, published, draft, archived]
+            default: active
+        - name: q
+          in: query
+          required: false
+          description: Dicocokkan pada judul atau teknologi, tanpa membedakan huruf besar/kecil
+          schema:
+            type: string
+            maxLength: 100
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        "200":
+          description: Satu halaman template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplateList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createTemplate
+      summary: Membuat template baru sebagai draft
+      description: File ZIP dan sampul diunggah sesudahnya lewat /admin/templates/{id}/files/*.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateInput"
+      responses:
+        "201":
+          description: Template dibuat sebagai draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        default:
+          $ref: "#/components/responses/Error"
+  /admin/templates/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      operationId: getAdminTemplate
+      summary: Satu template, termasuk yang diarsipkan
+      responses:
+        "200":
+          description: Template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: updateTemplate
+      summary: Mengubah isi template tanpa mengubah statusnya
+      description: 409 `template_archived` jika template diarsipkan; pulihkan dulu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateInput"
+      responses:
+        "200":
+          description: Template diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: archiveTemplate
+      summary: Mengarsipkan template
+      description: >-
+        Template hilang dari situs dan kembali menjadi draft. Pembelian lama tidak terpengaruh, dan
+        filenya tidak dihapus.
+      responses:
+        "200":
+          description: Template diarsipkan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Error"
+  /admin/templates/{id}/restore:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: restoreTemplate
+      summary: Memulihkan template yang diarsipkan sebagai draft
+      responses:
+        "200":
+          description: Template dipulihkan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Error"
+  /admin/templates/{id}/publish:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: publishTemplate
+      summary: Menayangkan template di situs
+      description: >-
+        409 `template_incomplete` jika file ZIP atau sampul belum diunggah, dan
+        `template_archived` jika template diarsipkan.
+      responses:
+        "200":
+          description: Template tayang
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/Error"
+  /admin/templates/{id}/unpublish:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: unpublishTemplate
+      summary: Menurunkan template dari situs menjadi draft
+      responses:
+        "200":
+          description: Template menjadi draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Error"
+  /admin/templates/{id}/files/zip:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      operationId: downloadAdminTemplateZip
+      summary: Mengunduh ZIP terbaru untuk diperiksa, dengan nama review-<slug>.zip
+      responses:
+        "200":
+          description: File ZIP
+          headers:
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: uploadTemplateZip
+      summary: Mengunggah atau mengganti file ZIP template
+      description: >-
+        Isi permintaan adalah file ZIP mentah (maks. 50 MB) dengan Content-Type
+        application/octet-stream. ZIP diperiksa tanpa pernah diekstrak; 422 `invalid_zip` jika ditolak.
+        ZIP lama tetap disimpan selama masih dipakai pesanan.
+      parameters:
+        - name: name
+          in: query
+          required: false
+          description: Nama file asli, hanya untuk ditampilkan
+          schema:
+            type: string
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: ZIP tersimpan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+        default:
+          $ref: "#/components/responses/Error"
+  /admin/templates/{id}/files/cover:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      operationId: getAdminTemplateCover
+      summary: Sampul template (WebP) untuk pratinjau di panel admin
+      responses:
+        "200":
+          description: Gambar sampul
+          content:
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: uploadTemplateCover
+      summary: Mengunggah atau mengganti sampul template
+      description: >-
+        Isi permintaan adalah gambar JPG, PNG, atau WebP mentah (maks. 2 MB dan 4000×4000 px) dengan
+        Content-Type application/octet-stream. Gambar selalu dikodekan ulang ke WebP dan diperkecil
+        agar muat dalam 1600×1600 px; 422 `invalid_image` jika ditolak.
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Sampul tersimpan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+        default:
+          $ref: "#/components/responses/Error"
 components:
+  parameters:
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
   responses:
     Error:
       description: Kesalahan dengan pesan Bahasa Indonesia
@@ -282,6 +718,18 @@ components:
             $ref: "#/components/schemas/Error"
     Conflict:
       description: Tindakan tidak sesuai dengan keadaan saat ini
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Data tidak ditemukan
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooLarge:
+      description: File melebihi ukuran maksimal
       content:
         application/json:
           schema:
@@ -435,8 +883,18 @@ components:
           example: "492039"
     AdminOverview:
       type: object
-      required: [pendingSellers, pendingTemplates, pendingPayouts, pendingPayoutAmount, ordersInReview]
+      required:
+        [pendingSellers, pendingTemplates, pendingPayouts, pendingPayoutAmount, ordersInReview, publishedTemplates, draftTemplates, categories]
       properties:
+        publishedTemplates:
+          type: integer
+          description: Template tayang di situs
+        draftTemplates:
+          type: integer
+          description: Template draft yang belum diarsipkan
+        categories:
+          type: integer
+          description: Jumlah kategori
         pendingSellers:
           type: integer
           description: Toko menunggu moderasi
@@ -453,3 +911,149 @@ components:
         ordersInReview:
           type: integer
           description: Pesanan perlu rekonsiliasi (status review)
+    CategoryInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: 1–80 karakter
+        slug:
+          type: string
+          description: Huruf kecil, angka, dan tanda hubung (maks. 100). Kosong berarti dibuat dari nama.
+        description:
+          type: string
+          nullable: true
+          description: Maks. 255 karakter
+    AdminCategory:
+      type: object
+      required: [id, name, slug, templateCount]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        templateCount:
+          type: integer
+          description: Semua template di kategori ini, termasuk yang diarsipkan
+    AdminCategoryList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminCategory"
+    TemplateInput:
+      type: object
+      required: [categoryId, title, summary, description, price, version, technology]
+      properties:
+        categoryId:
+          type: integer
+          format: int64
+        title:
+          type: string
+          description: Maks. 160 karakter
+        summary:
+          type: string
+          description: Maks. 240 karakter
+        description:
+          type: string
+          description: 30–20.000 karakter, ditampilkan sebagai teks biasa
+        price:
+          type: integer
+          format: int64
+          description: Rupiah utuh, Rp10.000–Rp100.000.000
+        version:
+          type: string
+          description: Maks. 40 karakter, misalnya 1.0.0
+        technology:
+          type: string
+          description: Maks. 80 karakter, misalnya Next.js + Tailwind
+        previewUrl:
+          type: string
+          nullable: true
+          description: Opsional, harus https://, maks. 500 karakter
+    TemplateZip:
+      type: object
+      required: [name, size]
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+          format: int64
+          description: Ukuran dalam byte
+    AdminTemplate:
+      type: object
+      required:
+        [id, slug, title, summary, description, price, version, technology, category, status, archived, hasCover, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        description:
+          type: string
+        price:
+          type: integer
+          format: int64
+        version:
+          type: string
+        technology:
+          type: string
+        previewUrl:
+          type: string
+          nullable: true
+        category:
+          $ref: "#/components/schemas/Category"
+        status:
+          type: string
+          enum: [draft, published]
+        archived:
+          type: boolean
+        zip:
+          allOf:
+            - $ref: "#/components/schemas/TemplateZip"
+          nullable: true
+        hasCover:
+          type: boolean
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AdminTemplateList:
+      type: object
+      required: [data, page, perPage, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminTemplate"
+        page:
+          type: integer
+        perPage:
+          type: integer
+        total:
+          type: integer

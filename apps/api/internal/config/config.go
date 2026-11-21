@@ -23,6 +23,10 @@ const DefaultMailFrom = "JD Sign <hello@jd-sign.com>"
 // LocalEncryptionKeys is a fixed key for APP_ENV=local only; it protects nothing real.
 const LocalEncryptionKeys = "1:6a647369676e2d6c6f63616c2d646576656c6f706d656e742d6b65792d303031"
 
+// LocalStorageDir holds uploaded template files during local development, relative to the
+// directory the API runs in (apps/api). It is ignored by Git.
+const LocalStorageDir = "storage"
+
 // minimumSecretLength keeps LOGIN_CODE_SECRET long enough to resist guessing.
 const minimumSecretLength = 32
 
@@ -40,10 +44,14 @@ type Config struct {
 	// Encryption comes from ENCRYPTION_KEYS. It is nil on staging when the variable is empty,
 	// which keeps the admin area closed.
 	Encryption *encryption.Keyring
+	// StorageDir is where template ZIPs and covers are kept (STORAGE_DIR). Empty on staging means
+	// uploads are refused until the volume is set up.
+	StorageDir string
 }
 
 // Load reads the configuration. Outside APP_ENV=local, DATABASE_URL, APP_URL, and
-// LOGIN_CODE_SECRET are required; production also requires RESEND_API_KEY and ENCRYPTION_KEYS.
+// LOGIN_CODE_SECRET are required; production also requires RESEND_API_KEY, ENCRYPTION_KEYS, and
+// STORAGE_DIR.
 func Load() (Config, error) {
 	cfg := Config{
 		Environment:        valueOrDefault("APP_ENV", "local"),
@@ -55,6 +63,7 @@ func Load() (Config, error) {
 		MailFrom:           valueOrDefault("MAIL_FROM", DefaultMailFrom),
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		StorageDir:         strings.TrimSpace(os.Getenv("STORAGE_DIR")),
 	}
 
 	switch cfg.Environment {
@@ -103,6 +112,15 @@ func Load() (Config, error) {
 		cfg.Encryption, _ = encryption.ParseKeys(LocalEncryptionKeys)
 	case cfg.Environment == "production":
 		return Config{}, errors.New(`ENCRYPTION_KEYS wajib diisi di production; buat dengan: echo "1:$(openssl rand -hex 32)"`)
+	}
+
+	if cfg.StorageDir == "" {
+		switch cfg.Environment {
+		case "local":
+			cfg.StorageDir = LocalStorageDir
+		case "production":
+			return Config{}, errors.New("STORAGE_DIR wajib diisi di production untuk menyimpan file template")
+		}
 	}
 
 	if (cfg.GoogleClientID == "") != (cfg.GoogleClientSecret == "") {

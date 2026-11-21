@@ -15,11 +15,15 @@ func TestMigrationsRollBackAndReapplyCleanly(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
 
-	if err := database.Migrate(ctx, pool, "down", io.Discard); err != nil {
-		t.Fatalf("migrate down: %v", err)
-	}
-	if tables := countApplicationTables(t, pool); tables != 0 {
-		t.Fatalf("tables after down = %d, want 0", tables)
+	// "down" reverts one migration, so roll back newest first until the schema is
+	// empty; every Down section has to run cleanly on the way.
+	for steps := 0; countApplicationTables(t, pool) > 0; steps++ {
+		if steps == 50 {
+			t.Fatal("tables remain after 50 rollbacks")
+		}
+		if err := database.Migrate(ctx, pool, "down", io.Discard); err != nil {
+			t.Fatalf("migrate down (step %d): %v", steps+1, err)
+		}
 	}
 
 	if err := database.Migrate(ctx, pool, "up", io.Discard); err != nil {

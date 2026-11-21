@@ -66,4 +66,7 @@ SELECT
     (SELECT count(*) FROM templates WHERE status = 'pending' AND deleted_at IS NULL)::int        AS pending_templates,
     (SELECT count(*) FROM payout_requests WHERE status = 'pending')::int                        AS pending_payouts,
     (SELECT COALESCE(sum(amount), 0) FROM payout_requests WHERE status = 'pending')::bigint     AS pending_payout_amount,
-    (SELECT count(*) FROM orders WHERE status = 'review')::int                                  AS orders_in_review;
+    (SELECT count(*) FROM orders WHERE status = 'review')::int                                  AS orders_in_review,
+    (SELECT count(*) FROM templates WHERE status = 'approved' AND deleted_at IS NULL)::int       AS published_templates,
+    (SELECT count(*) FROM templates WHERE status <> 'approved' AND deleted_at IS NULL)::int      AS draft_templates,
+    (SELECT count(*) FROM categories)::int                                                      AS categories;

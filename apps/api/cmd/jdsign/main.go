@@ -28,6 +28,7 @@ import (
 	"github.com/jefthah/jdsign/apps/api/internal/google"
 	"github.com/jefthah/jdsign/apps/api/internal/httpapi"
 	"github.com/jefthah/jdsign/apps/api/internal/mail"
+	"github.com/jefthah/jdsign/apps/api/internal/storage"
 )
 
 func main() {
@@ -128,9 +129,18 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	}
 	defer pool.Close()
 
+	settings := serverSettings(cfg, logger)
+	if cfg.StorageDir != "" {
+		if settings.Storage, err = storage.Open(cfg.StorageDir); err != nil {
+			return err
+		}
+	} else {
+		logger.Warn("STORAGE_DIR kosong: unggahan file template ditolak sampai penyimpanan disiapkan")
+	}
+
 	server := &http.Server{
 		Addr:              cfg.HTTPAddress,
-		Handler:           httpapi.NewHandler(httpapi.NewServer(pool, logger, serverSettings(cfg, logger))),
+		Handler:           httpapi.NewHandler(httpapi.NewServer(pool, logger, settings)),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       60 * time.Second,
 		WriteTimeout:      120 * time.Second,

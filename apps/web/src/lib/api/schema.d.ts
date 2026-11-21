@@ -210,6 +210,204 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Semua kategori beserta jumlah templatenya */
+        get: operations["listAdminCategories"];
+        put?: never;
+        /**
+         * Membuat kategori
+         * @description Slug dibuat dari nama jika dikosongkan. 409 `slug_taken` jika slug sudah dipakai.
+         */
+        post: operations["createCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Mengubah kategori */
+        put: operations["updateCategory"];
+        post?: never;
+        /**
+         * Menghapus kategori yang tidak dipakai template mana pun
+         * @description 409 `category_in_use` jika masih ada template, termasuk yang diarsipkan.
+         */
+        delete: operations["deleteCategory"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Template untuk dikelola admin, terbaru diubah lebih dulu, 20 per halaman */
+        get: operations["listAdminTemplates"];
+        put?: never;
+        /**
+         * Membuat template baru sebagai draft
+         * @description File ZIP dan sampul diunggah sesudahnya lewat /admin/templates/{id}/files/*.
+         */
+        post: operations["createTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /** Satu template, termasuk yang diarsipkan */
+        get: operations["getAdminTemplate"];
+        /**
+         * Mengubah isi template tanpa mengubah statusnya
+         * @description 409 `template_archived` jika template diarsipkan; pulihkan dulu.
+         */
+        put: operations["updateTemplate"];
+        post?: never;
+        /**
+         * Mengarsipkan template
+         * @description Template hilang dari situs dan kembali menjadi draft. Pembelian lama tidak terpengaruh, dan filenya tidak dihapus.
+         */
+        delete: operations["archiveTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/templates/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Memulihkan template yang diarsipkan sebagai draft */
+        post: operations["restoreTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/templates/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Menayangkan template di situs
+         * @description 409 `template_incomplete` jika file ZIP atau sampul belum diunggah, dan `template_archived` jika template diarsipkan.
+         */
+        post: operations["publishTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/templates/{id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Menurunkan template dari situs menjadi draft */
+        post: operations["unpublishTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/templates/{id}/files/zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /** Mengunduh ZIP terbaru untuk diperiksa, dengan nama review-<slug>.zip */
+        get: operations["downloadAdminTemplateZip"];
+        /**
+         * Mengunggah atau mengganti file ZIP template
+         * @description Isi permintaan adalah file ZIP mentah (maks. 50 MB) dengan Content-Type application/octet-stream. ZIP diperiksa tanpa pernah diekstrak; 422 `invalid_zip` jika ditolak. ZIP lama tetap disimpan selama masih dipakai pesanan.
+         */
+        put: operations["uploadTemplateZip"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/templates/{id}/files/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /** Sampul template (WebP) untuk pratinjau di panel admin */
+        get: operations["getAdminTemplateCover"];
+        /**
+         * Mengunggah atau mengganti sampul template
+         * @description Isi permintaan adalah gambar JPG, PNG, atau WebP mentah (maks. 2 MB dan 4000×4000 px) dengan Content-Type application/octet-stream. Gambar selalu dikodekan ulang ke WebP dan diperkecil agar muat dalam 1600×1600 px; 422 `invalid_image` jika ditolak.
+         */
+        put: operations["uploadTemplateCover"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -280,6 +478,12 @@ export interface components {
             code: string;
         };
         AdminOverview: {
+            /** @description Template tayang di situs */
+            publishedTemplates: number;
+            /** @description Template draft yang belum diarsipkan */
+            draftTemplates: number;
+            /** @description Jumlah kategori */
+            categories: number;
             /** @description Toko menunggu moderasi */
             pendingSellers: number;
             /** @description Template perlu ditinjau */
@@ -293,6 +497,88 @@ export interface components {
             pendingPayoutAmount: number;
             /** @description Pesanan perlu rekonsiliasi (status review) */
             ordersInReview: number;
+        };
+        CategoryInput: {
+            /** @description 1–80 karakter */
+            name: string;
+            /** @description Huruf kecil, angka, dan tanda hubung (maks. 100). Kosong berarti dibuat dari nama. */
+            slug?: string;
+            /** @description Maks. 255 karakter */
+            description?: string | null;
+        };
+        AdminCategory: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            slug: string;
+            description?: string | null;
+            /** @description Semua template di kategori ini, termasuk yang diarsipkan */
+            templateCount: number;
+        };
+        AdminCategoryList: {
+            data: components["schemas"]["AdminCategory"][];
+        };
+        TemplateInput: {
+            /** Format: int64 */
+            categoryId: number;
+            /** @description Maks. 160 karakter */
+            title: string;
+            /** @description Maks. 240 karakter */
+            summary: string;
+            /** @description 30–20.000 karakter, ditampilkan sebagai teks biasa */
+            description: string;
+            /**
+             * Format: int64
+             * @description Rupiah utuh, Rp10.000–Rp100.000.000
+             */
+            price: number;
+            /** @description Maks. 40 karakter, misalnya 1.0.0 */
+            version: string;
+            /** @description Maks. 80 karakter, misalnya Next.js + Tailwind */
+            technology: string;
+            /** @description Opsional, harus https://, maks. 500 karakter */
+            previewUrl?: string | null;
+        };
+        TemplateZip: {
+            name: string;
+            /**
+             * Format: int64
+             * @description Ukuran dalam byte
+             */
+            size: number;
+        };
+        AdminTemplate: {
+            /** Format: int64 */
+            id: number;
+            slug: string;
+            title: string;
+            summary: string;
+            description: string;
+            /** Format: int64 */
+            price: number;
+            version: string;
+            technology: string;
+            previewUrl?: string | null;
+            category: components["schemas"]["Category"];
+            /** @enum {string} */
+            status: "draft" | "published";
+            archived: boolean;
+            zip?: components["schemas"]["TemplateZip"] | null;
+            hasCover: boolean;
+            /** Format: date-time */
+            publishedAt?: string | null;
+            /** Format: date-time */
+            archivedAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminTemplateList: {
+            data: components["schemas"]["AdminTemplate"][];
+            page: number;
+            perPage: number;
+            total: number;
         };
     };
     responses: {
@@ -325,6 +611,24 @@ export interface components {
         };
         /** @description Tindakan tidak sesuai dengan keadaan saat ini */
         Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Data tidak ditemukan */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description File melebihi ukuran maksimal */
+        TooLarge: {
             headers: {
                 [name: string]: unknown;
             };
@@ -370,7 +674,9 @@ export interface components {
             content?: never;
         };
     };
-    parameters: never;
+    parameters: {
+        ResourceId: number;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -659,6 +965,459 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listAdminCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Kategori, urut nama */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCategoryList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryInput"];
+            };
+        };
+        responses: {
+            /** @description Kategori dibuat */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCategory"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryInput"];
+            };
+        };
+        responses: {
+            /** @description Kategori diperbarui */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCategory"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Kategori dihapus */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listAdminTemplates: {
+        parameters: {
+            query?: {
+                /** @description active (belum diarsipkan, bawaan), published, draft, atau archived */
+                status?: "active" | "published" | "draft" | "archived";
+                /** @description Dicocokkan pada judul atau teknologi, tanpa membedakan huruf besar/kecil */
+                q?: string;
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Satu halaman template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTemplateList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateInput"];
+            };
+        };
+        responses: {
+            /** @description Template dibuat sebagai draft */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTemplate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getAdminTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTemplate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateInput"];
+            };
+        };
+        responses: {
+            /** @description Template diperbarui */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTemplate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template diarsipkan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTemplate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template dipulihkan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTemplate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
+    publishTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template tayang */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTemplate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["Error"];
+        };
+    };
+    unpublishTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template menjadi draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTemplate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadAdminTemplateZip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File ZIP */
+            200: {
+                headers: {
+                    "Content-Disposition": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
+    uploadTemplateZip: {
+        parameters: {
+            query?: {
+                /** @description Nama file asli, hanya untuk ditampilkan */
+                name?: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description ZIP tersimpan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTemplate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["TooLarge"];
+            422: components["responses"]["ValidationFailed"];
+            503: components["responses"]["ServiceUnavailable"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getAdminTemplateCover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gambar sampul */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/webp": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
+    uploadTemplateCover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Sampul tersimpan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTemplate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["TooLarge"];
+            422: components["responses"]["ValidationFailed"];
+            503: components["responses"]["ServiceUnavailable"];
             default: components["responses"]["Error"];
         };
     };

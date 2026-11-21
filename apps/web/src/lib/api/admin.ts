@@ -92,3 +92,55 @@ export async function requireAdminSetup(): Promise<SetupState> {
 
   leaveAdminArea(response.status, error?.error.code, adminHomePath);
 }
+
+export type AdminTemplate = components["schemas"]["AdminTemplate"];
+export type AdminTemplateList = components["schemas"]["AdminTemplateList"];
+export type AdminCategory = components["schemas"]["AdminCategory"];
+export type TemplateFilter = "active" | "published" | "draft" | "archived";
+
+/** One page of templates for the admin list. Render inside <Suspense>. */
+export async function requireAdminTemplates(
+  query: { status: TemplateFilter; q: string; page: number },
+  path: string,
+): Promise<AdminTemplateList> {
+  const { data, error, response } = await serverApi.GET("/admin/templates", {
+    headers: await sessionOrLogin(path),
+    params: { query: { status: query.status, q: query.q || undefined, page: query.page } },
+    signal: AbortSignal.timeout(5000),
+  });
+  if (data) {
+    return data;
+  }
+
+  leaveAdminArea(response.status, error?.error.code, path);
+}
+
+/** One template, or the 404 page when it does not exist. Render inside <Suspense>. */
+export async function requireAdminTemplate(id: number, path: string): Promise<AdminTemplate> {
+  if (!Number.isSafeInteger(id) || id < 1) {
+    notFound();
+  }
+  const { data, error, response } = await serverApi.GET("/admin/templates/{id}", {
+    headers: await sessionOrLogin(path),
+    params: { path: { id } },
+    signal: AbortSignal.timeout(5000),
+  });
+  if (data) {
+    return data;
+  }
+
+  leaveAdminArea(response.status, error?.error.code, path);
+}
+
+/** Every category with its template count. Render inside <Suspense>. */
+export async function requireAdminCategories(path: string): Promise<AdminCategory[]> {
+  const { data, error, response } = await serverApi.GET("/admin/categories", {
+    headers: await sessionOrLogin(path),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (data) {
+    return data.data;
+  }
+
+  leaveAdminArea(response.status, error?.error.code, path);
+}

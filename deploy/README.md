@@ -67,5 +67,17 @@ hanya menjalankan aplikasi. URL: https://staging.jd-sign.com.
   Semua sesi admin itu berakhir, dan authenticator dipasang ulang saat masuk berikutnya.
 - Kedua perintah dicatat di log audit sebagai "Sistem".
 
+## File template
+
+- ZIP dan sampul template disimpan di volume Docker `jdsign-staging_template-files`
+  (di container API: `/var/lib/jdsign/storage`, `STORAGE_DIR`). Volume dan variabelnya
+  datang dari `compose.staging.yml`, jadi jalankan `sudo bash deploy/apply-staging-config.sh`
+  **sebelum** push rilis yang pertama kali membawanya. Tanpa itu API tetap jalan, tetapi
+  setiap unggahan dijawab 503 `storage_unavailable`.
+- Backup otomatis saat deploy hanya mencakup database, **bukan** volume ini. Cadangkan
+  manual, misalnya:
+  `sudo tar czf /opt/jdsign/staging/backups/template-files-$(date +%F).tgz -C /var/lib/docker/volumes/jdsign-staging_template-files/_data .`
+- Batas unggahan ditegakkan API (ZIP 50 MB, sampul 2 MB); Caddy tidak membatasi ukuran body.
+
 Staging dapat dilihat publik dan diberi header `noindex`. Ini masih kerangka
 aplikasi; fitur marketplace akan mengikuti tahap pengembangan berikutnya.
