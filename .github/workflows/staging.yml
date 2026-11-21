@@ -44,9 +44,10 @@ jobs:
         working-directory: apps/api
         env:
           TEST_DATABASE_URL: postgres://jdsign:jdsign-ci@127.0.0.1:5432/jdsign?sslmode=disable
+        # nodynamic: same WebP encoder as the release binary (see Build API binary).
         run: |
-          go vet ./...
-          go test -race -count=1 ./...
+          go vet -tags nodynamic ./...
+          go test -tags nodynamic -race -count=1 ./...
       - name: Check and build web
         working-directory: apps/web
         env:
@@ -65,9 +66,15 @@ jobs:
         working-directory: apps/api
         env:
           CGO_ENABLED: "0"
+        # The image is Alpine (musl). gen2brain/webp would otherwise load libwebp through purego,
+        # which makes the binary ask for glibc's loader and fail there with "no such file or directory".
         run: |
           mkdir -p ../../dist
-          go build -trimpath -ldflags='-s -w' -o ../../dist/jdsign ./cmd/jdsign
+          go build -tags nodynamic -trimpath -ldflags='-s -w' -o ../../dist/jdsign ./cmd/jdsign
+          if readelf -l ../../dist/jdsign | grep -q INTERP; then
+            echo 'dist/jdsign is dynamically linked; it would not start on Alpine' >&2
+            exit 1
+          fi
       - name: Package release images
         if: github.event_name != 'pull_request'
         run: |
