@@ -137,10 +137,7 @@ func (s *Server) VerifyLoginCode(ctx context.Context, request VerifyLoginCodeReq
 func (s *Server) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeResponseObject, error) {
 	account, err := s.currentAccount(ctx)
 	if errors.Is(err, auth.ErrNoSession) {
-		var body Error
-		body.Error.Code = "unauthenticated"
-		body.Error.Message = "Silakan masuk terlebih dahulu."
-		return GetMe401JSONResponse{UnauthorizedJSONResponse(body)}, nil
+		return GetMe401JSONResponse{UnauthorizedJSONResponse(unauthenticatedBody())}, nil
 	}
 	if err != nil {
 		return nil, err

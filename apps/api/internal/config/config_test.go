@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestLocalEnvironmentFallsBackToComposeDatabase(t *testing.T) {
 	t.Setenv("APP_ENV", "")
@@ -100,5 +103,54 @@ func TestGoogleCredentialsComeInPairs(t *testing.T) {
 
 	if _, err := Load(); err == nil {
 		t.Fatal("Load() accepted GOOGLE_CLIENT_ID without GOOGLE_CLIENT_SECRET")
+	}
+}
+
+func TestProductionRequiresEncryptionKeys(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("APP_URL", "https://jd-sign.com")
+	t.Setenv("LOGIN_CODE_SECRET", "0123456789abcdef0123456789abcdef")
+	t.Setenv("RESEND_API_KEY", "re_test")
+	t.Setenv("ENCRYPTION_KEYS", "")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() succeeded without ENCRYPTION_KEYS on production")
+	}
+}
+
+func TestStagingWithoutEncryptionKeysStartsWithAdminAreaClosed(t *testing.T) {
+	t.Setenv("APP_ENV", "staging")
+	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("APP_URL", "https://staging.jd-sign.com")
+	t.Setenv("LOGIN_CODE_SECRET", "0123456789abcdef0123456789abcdef")
+	t.Setenv("ENCRYPTION_KEYS", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Encryption != nil {
+		t.Fatal("staging without ENCRYPTION_KEYS got a keyring")
+	}
+
+	t.Setenv("ENCRYPTION_KEYS", "1:"+strings.Repeat("ab", 32))
+	if cfg, err = Load(); err != nil || cfg.Encryption == nil {
+		t.Fatalf("Load() with ENCRYPTION_KEYS = %v, keyring set = %v", err, cfg.Encryption != nil)
+	}
+
+	t.Setenv("ENCRYPTION_KEYS", "1:terlalu-pendek")
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() accepted a malformed ENCRYPTION_KEYS")
+	}
+}
+
+func TestLocalEnvironmentHasDevelopmentEncryptionKey(t *testing.T) {
+	t.Setenv("APP_ENV", "local")
+	t.Setenv("ENCRYPTION_KEYS", "")
+
+	cfg, err := Load()
+	if err != nil || cfg.Encryption == nil {
+		t.Fatalf("Load() = %v, keyring set = %v; want the local development key", err, cfg.Encryption != nil)
 	}
 }

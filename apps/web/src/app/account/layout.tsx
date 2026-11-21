@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { AccountMenu, AccountMenuSkeleton, UserAvatar } from "@/components/account/account-menu";
+import { AccountMenuSkeleton, UserAvatar } from "@/components/account/account-menu";
 import { AccountNav } from "@/components/account/account-nav";
-import { roleLabels, summarize } from "@/components/account/links";
+import { roleLabels } from "@/components/account/links";
+import { TopbarAccount } from "@/components/account/topbar-account";
 import { Wordmark } from "@/components/auth/auth-shell";
 import { getSignedInAccount } from "@/lib/api/session";
 
@@ -37,19 +38,6 @@ export default function AccountLayout({ children }: LayoutProps<"/account">) {
       </div>
     </div>
   );
-}
-
-async function TopbarAccount() {
-  const account = await getSignedInAccount();
-  if (!account) {
-    return (
-      <Link className="acct-login-link" href="/login">
-        Masuk
-      </Link>
-    );
-  }
-
-  return <AccountMenu account={summarize(account)} />;
 }
 
 async function SidebarProfile() {

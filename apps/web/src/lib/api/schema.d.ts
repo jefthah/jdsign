@@ -146,6 +146,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/mfa/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rahasia dan URI QR untuk memasang aplikasi authenticator
+         * @description Hanya untuk admin yang belum mengonfirmasi authenticator. Rahasia yang sama dikembalikan sampai pemasangan dikonfirmasi, jadi memuat ulang halaman tidak membatalkan QR yang sudah dipindai. Kode error 403: `admin_only`, `email_unverified`.
+         */
+        get: operations["getAdminMfaSetup"];
+        put?: never;
+        /**
+         * Mengonfirmasi pemasangan authenticator dengan satu kode yang benar
+         * @description Mengaktifkan TOTP untuk akun ini dan sekaligus memverifikasi sesi saat ini. Batas laju 5 percobaan per menit per admin, bersama dengan /admin/mfa/verify.
+         */
+        post: operations["confirmAdminMfaSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mfa/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Memverifikasi sesi saat ini dengan kode authenticator
+         * @description Wajib sekali untuk setiap sesi baru sebelum membuka area admin. Kode yang sudah pernah dipakai ditolak. 409 `mfa_setup_required` jika authenticator belum dipasang.
+         */
+        post: operations["verifyAdminMfa"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ringkasan pekerjaan admin yang menunggu
+         * @description Seperti semua endpoint admin lain, mensyaratkan sesi yang sudah diverifikasi authenticator. Kode error 403: `admin_only`, `email_unverified`, `mfa_setup_required`, `mfa_required`.
+         */
+        get: operations["getAdminOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -205,6 +269,31 @@ export interface components {
             role: "buyer" | "seller" | "admin";
             emailVerified: boolean;
         };
+        AdminMfaSetup: {
+            /** @description Isi kode QR, otpauth://totp/JD%20Sign:<email>?secret=...&issuer=JD%20Sign */
+            otpauthUri: string;
+            /** @description Rahasia base32 untuk diketik manual ke aplikasi authenticator */
+            secret: string;
+        };
+        AdminMfaCode: {
+            /** @example 492039 */
+            code: string;
+        };
+        AdminOverview: {
+            /** @description Toko menunggu moderasi */
+            pendingSellers: number;
+            /** @description Template perlu ditinjau */
+            pendingTemplates: number;
+            /** @description Pengajuan pencairan menunggu transfer */
+            pendingPayouts: number;
+            /**
+             * Format: int64
+             * @description Total rupiah pencairan yang menunggu transfer
+             */
+            pendingPayoutAmount: number;
+            /** @description Pesanan perlu rekonsiliasi (status review) */
+            ordersInReview: number;
+        };
     };
     responses: {
         /** @description Kesalahan dengan pesan Bahasa Indonesia */
@@ -227,6 +316,15 @@ export interface components {
         };
         /** @description Tindakan tidak diizinkan */
         Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Tindakan tidak sesuai dengan keadaan saat ini */
+        Conflict: {
             headers: {
                 [name: string]: unknown;
             };
@@ -455,6 +553,112 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getAdminMfaSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rahasia belum dikonfirmasi */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMfaSetup"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+            default: components["responses"]["Error"];
+        };
+    };
+    confirmAdminMfaSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminMfaCode"];
+            };
+        };
+        responses: {
+            /** @description Authenticator aktif dan sesi ini terverifikasi */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ServiceUnavailable"];
+            default: components["responses"]["Error"];
+        };
+    };
+    verifyAdminMfa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminMfaCode"];
+            };
+        };
+        responses: {
+            /** @description Sesi ini boleh membuka area admin */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ServiceUnavailable"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getAdminOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Jumlah yang perlu ditindaklanjuti */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["Error"];
         };
     };

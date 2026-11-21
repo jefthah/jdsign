@@ -38,6 +38,8 @@ services:
       DATABASE_URL: postgres://jdsign:${POSTGRES_PASSWORD:?required}@postgres:5432/jdsign?sslmode=disable
       APP_URL: https://staging.jd-sign.com
       LOGIN_CODE_SECRET: ${LOGIN_CODE_SECRET:?required}
+      # Optional on staging. Without it the admin area stays closed (authenticators cannot be stored).
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-}
       # Optional. Without RESEND_API_KEY, login codes are written to the API log only.
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-}

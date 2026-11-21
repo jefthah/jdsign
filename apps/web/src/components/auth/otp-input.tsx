@@ -16,6 +16,8 @@ export function OtpInput({
   invalid,
   busy,
   describedBy,
+  label = "Kode verifikasi 6 digit",
+  autoFocus = true,
 }: {
   value: string;
   onChange: (digits: string) => void;
@@ -23,6 +25,9 @@ export function OtpInput({
   /** Read-only rather than disabled while checking, so focus stays put for the next try. */
   busy: boolean;
   describedBy: string;
+  label?: string;
+  /** Off where focusing would scroll content the person must read first out of view. */
+  autoFocus?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
   const activeIndex = Math.min(value.length, 5);
@@ -37,13 +42,13 @@ export function OtpInput({
         inputMode="numeric"
         autoComplete="one-time-code"
         pattern="[0-9]{6}"
-        aria-label="Kode verifikasi 6 digit"
+        aria-label={label}
         aria-describedby={describedBy}
         aria-invalid={invalid}
         value={value}
         readOnly={busy}
         aria-busy={busy}
-        autoFocus
+        autoFocus={autoFocus}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onChange={(event) => onChange(event.target.value.replace(/\D/g, "").slice(0, 6))}

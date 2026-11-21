@@ -16,6 +16,7 @@ import (
 
 	"github.com/jefthah/jdsign/apps/api/internal/auth"
 	"github.com/jefthah/jdsign/apps/api/internal/database/sqlcdb"
+	"github.com/jefthah/jdsign/apps/api/internal/encryption"
 	"github.com/jefthah/jdsign/apps/api/internal/google"
 	"github.com/jefthah/jdsign/apps/api/internal/mail"
 	"github.com/jefthah/jdsign/apps/api/internal/ratelimit"
@@ -40,6 +41,8 @@ type Settings struct {
 	Mailer mail.Mailer
 	// Google configures "Sign in with Google". An empty ClientID disables it.
 	Google google.Config
+	// Encryption seals admin authenticator secrets. Nil turns admin MFA, and so the admin area, off.
+	Encryption *encryption.Keyring
 }
 
 // Server implements the operations from api/openapi.yaml on top of PostgreSQL.
@@ -93,7 +96,7 @@ func NewServer(pool *pgxpool.Pool, logger *slog.Logger, settings Settings) *Serv
 	}
 	if pool != nil {
 		server.queries = sqlcdb.New(pool)
-		server.auth = auth.NewService(pool, mailer, []byte(secret))
+		server.auth = auth.NewService(pool, mailer, []byte(secret), settings.Encryption)
 	}
 
 	return server

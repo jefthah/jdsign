@@ -1,0 +1,297 @@
+/* Panel admin (/admin/*). Stylesheet global: semua kelas berawalan adm-.
+   Tata letak memakai kelas auth- (halaman authenticator) dan acct- (panel), termasuk token --auth-*. */
+
+.adm-pill {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--auth-ink);
+  color: var(--auth-on-ink);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.adm-pill svg {
+  color: var(--auth-lime);
+}
+
+/* Halaman authenticator ------------------------------------------------------ */
+
+.adm-mfa-page {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.adm-mfa-column {
+  width: min(480px, 100%);
+}
+
+.adm-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: adm-step;
+}
+
+.adm-steps > li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.adm-steps > li::before {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--auth-ink);
+  color: var(--auth-lime);
+  content: counter(adm-step);
+  counter-increment: adm-step;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.adm-step-title {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 28px;
+}
+
+.adm-step-text {
+  margin-bottom: 14px;
+  color: var(--auth-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.adm-qr-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px;
+  border: 1px solid var(--auth-line);
+  border-radius: 20px;
+  background: var(--auth-card);
+}
+
+.adm-qr {
+  flex-shrink: 0;
+  width: 168px;
+  height: 168px;
+  padding: 8px;
+  border: 1px solid var(--auth-line);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.adm-qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.adm-secret {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.adm-secret-label {
+  color: var(--auth-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.adm-secret-code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.adm-copy {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--auth-field-line);
+  border-radius: 999px;
+  background: var(--auth-card);
+  color: var(--auth-ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.adm-copy:hover {
+  border-color: var(--auth-ink);
+}
+
+.adm-help {
+  color: var(--auth-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.adm-mfa-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-top: 20px;
+  border-top: 1px solid var(--auth-line);
+}
+
+.adm-skeleton {
+  display: block;
+  width: min(440px, 100%);
+  height: 360px;
+  border-radius: 20px;
+  background: linear-gradient(90deg, #eeefe7, #f7f7f2, #eeefe7);
+  background-size: 200% 100%;
+  animation: adm-shimmer 1.4s linear infinite;
+}
+
+@keyframes adm-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* Panel ---------------------------------------------------------------------- */
+
+.adm-panel-card p {
+  color: var(--auth-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.adm-panel-card strong {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.adm-nav-soon {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  color: var(--auth-muted);
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0.55;
+  cursor: default;
+}
+
+.adm-soon-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--auth-surface);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.adm-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.adm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 156px;
+  padding: 20px;
+  border: 1px solid var(--auth-line);
+  border-radius: 20px;
+  background: var(--auth-card);
+}
+
+.adm-stat-attention {
+  border-color: var(--auth-ink);
+  box-shadow: inset 0 0 0 1px var(--auth-ink);
+}
+
+.adm-stat-label {
+  color: var(--auth-muted);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.adm-stat-value {
+  font-size: 34px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.adm-stat-hint {
+  margin-top: auto;
+  color: var(--auth-muted);
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-skeleton {
+    animation: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .adm-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .adm-nav-soon {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .adm-qr-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .adm-qr {
+    align-self: center;
+    width: 208px;
+    height: 208px;
+  }
+
+  .adm-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adm-stat {
+    min-height: 0;
+  }
+
+  .adm-topbar-pill-label {
+    display: none;
+  }
+}

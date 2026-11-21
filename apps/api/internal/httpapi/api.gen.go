@@ -85,6 +85,39 @@ type Account struct {
 // AccountRole defines model for Account.Role.
 type AccountRole string
 
+// AdminMfaCode defines model for AdminMfaCode.
+type AdminMfaCode struct {
+	// Code Example: 492039
+	Code string `json:"code"`
+}
+
+// AdminMfaSetup defines model for AdminMfaSetup.
+type AdminMfaSetup struct {
+	// OtpauthUri Isi kode QR, otpauth://totp/JD%20Sign:<email>?secret=...&issuer=JD%20Sign
+	OtpauthUri string `json:"otpauthUri"`
+
+	// Secret Rahasia base32 untuk diketik manual ke aplikasi authenticator
+	Secret string `json:"secret"`
+}
+
+// AdminOverview defines model for AdminOverview.
+type AdminOverview struct {
+	// OrdersInReview Pesanan perlu rekonsiliasi (status review)
+	OrdersInReview int `json:"ordersInReview"`
+
+	// PendingPayoutAmount Total rupiah pencairan yang menunggu transfer
+	PendingPayoutAmount int64 `json:"pendingPayoutAmount"`
+
+	// PendingPayouts Pengajuan pencairan menunggu transfer
+	PendingPayouts int `json:"pendingPayouts"`
+
+	// PendingSellers Toko menunggu moderasi
+	PendingSellers int `json:"pendingSellers"`
+
+	// PendingTemplates Template perlu ditinjau
+	PendingTemplates int `json:"pendingTemplates"`
+}
+
 // Category defines model for Category.
 type Category struct {
 	Description *string `json:"description,omitempty"`
@@ -147,6 +180,9 @@ type VerifyLoginCodeRequest struct {
 	Remember *bool  `json:"remember,omitempty"`
 }
 
+// Conflict defines model for Conflict.
+type Conflict = Error
+
 // Forbidden defines model for Forbidden.
 type Forbidden = Error
 
@@ -175,6 +211,12 @@ type FinishGoogleLoginParams struct {
 	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
 
+// ConfirmAdminMfaSetupJSONRequestBody defines body for ConfirmAdminMfaSetup for application/json ContentType.
+type ConfirmAdminMfaSetupJSONRequestBody = AdminMfaCode
+
+// VerifyAdminMfaJSONRequestBody defines body for VerifyAdminMfa for application/json ContentType.
+type VerifyAdminMfaJSONRequestBody = AdminMfaCode
+
 // RequestLoginCodeJSONRequestBody defines body for RequestLoginCode for application/json ContentType.
 type RequestLoginCodeJSONRequestBody = LoginCodeRequest
 
@@ -183,6 +225,18 @@ type VerifyLoginCodeJSONRequestBody = VerifyLoginCodeRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// GetAdminMfaSetup Rahasia dan URI QR untuk memasang aplikasi authenticator
+	// (GET /admin/mfa/setup)
+	GetAdminMfaSetup(w http.ResponseWriter, r *http.Request)
+	// ConfirmAdminMfaSetup Mengonfirmasi pemasangan authenticator dengan satu kode yang benar
+	// (POST /admin/mfa/setup)
+	ConfirmAdminMfaSetup(w http.ResponseWriter, r *http.Request)
+	// VerifyAdminMfa Memverifikasi sesi saat ini dengan kode authenticator
+	// (POST /admin/mfa/verify)
+	VerifyAdminMfa(w http.ResponseWriter, r *http.Request)
+	// GetAdminOverview Ringkasan pekerjaan admin yang menunggu
+	// (GET /admin/overview)
+	GetAdminOverview(w http.ResponseWriter, r *http.Request)
 	// RequestLoginCode Mengirim kode masuk 6 digit ke email
 	// (POST /auth/code)
 	RequestLoginCode(w http.ResponseWriter, r *http.Request)
@@ -217,6 +271,62 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetAdminMfaSetup operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminMfaSetup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminMfaSetup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmAdminMfaSetup operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmAdminMfaSetup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmAdminMfaSetup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// VerifyAdminMfa operation middleware
+func (siw *ServerInterfaceWrapper) VerifyAdminMfa(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyAdminMfa(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminOverview operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminOverview(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminOverview(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // RequestLoginCode operation middleware
 func (siw *ServerInterfaceWrapper) RequestLoginCode(w http.ResponseWriter, r *http.Request) {
@@ -522,9 +632,15 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/google/callback", wrapper.FinishGoogleLogin)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me", wrapper.GetMe)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/mfa/setup", wrapper.GetAdminMfaSetup)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/mfa/setup", wrapper.ConfirmAdminMfaSetup)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/mfa/verify", wrapper.VerifyAdminMfa)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/overview", wrapper.GetAdminOverview)
 
 	return m
 }
+
+type ConflictJSONResponse Error
 
 type ErrorJSONResponse Error
 
@@ -551,6 +667,406 @@ type TooManyRequestsJSONResponse struct {
 type UnauthorizedJSONResponse Error
 
 type ValidationFailedJSONResponse Error
+
+type GetAdminMfaSetupRequestObject struct {
+}
+
+type GetAdminMfaSetupResponseObject interface {
+	VisitGetAdminMfaSetupResponse(w http.ResponseWriter) error
+}
+
+type GetAdminMfaSetup200JSONResponse AdminMfaSetup
+
+func (response GetAdminMfaSetup200JSONResponse) VisitGetAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminMfaSetup401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminMfaSetup401JSONResponse) VisitGetAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminMfaSetup403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminMfaSetup403JSONResponse) VisitGetAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminMfaSetup409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetAdminMfaSetup409JSONResponse) VisitGetAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminMfaSetup503JSONResponse struct{ ServiceUnavailableJSONResponse }
+
+func (response GetAdminMfaSetup503JSONResponse) VisitGetAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminMfaSetupdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetAdminMfaSetupdefaultJSONResponse) VisitGetAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmAdminMfaSetupRequestObject struct {
+	Body *ConfirmAdminMfaSetupJSONRequestBody
+}
+
+type ConfirmAdminMfaSetupResponseObject interface {
+	VisitConfirmAdminMfaSetupResponse(w http.ResponseWriter) error
+}
+
+type ConfirmAdminMfaSetup204Response struct {
+}
+
+func (response ConfirmAdminMfaSetup204Response) VisitConfirmAdminMfaSetupResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ConfirmAdminMfaSetup401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ConfirmAdminMfaSetup401JSONResponse) VisitConfirmAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmAdminMfaSetup403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ConfirmAdminMfaSetup403JSONResponse) VisitConfirmAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmAdminMfaSetup409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ConfirmAdminMfaSetup409JSONResponse) VisitConfirmAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmAdminMfaSetup422JSONResponse struct{ ValidationFailedJSONResponse }
+
+func (response ConfirmAdminMfaSetup422JSONResponse) VisitConfirmAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmAdminMfaSetup429JSONResponse struct{ TooManyRequestsJSONResponse }
+
+func (response ConfirmAdminMfaSetup429JSONResponse) VisitConfirmAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmAdminMfaSetup503JSONResponse struct{ ServiceUnavailableJSONResponse }
+
+func (response ConfirmAdminMfaSetup503JSONResponse) VisitConfirmAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmAdminMfaSetupdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ConfirmAdminMfaSetupdefaultJSONResponse) VisitConfirmAdminMfaSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyAdminMfaRequestObject struct {
+	Body *VerifyAdminMfaJSONRequestBody
+}
+
+type VerifyAdminMfaResponseObject interface {
+	VisitVerifyAdminMfaResponse(w http.ResponseWriter) error
+}
+
+type VerifyAdminMfa204Response struct {
+}
+
+func (response VerifyAdminMfa204Response) VisitVerifyAdminMfaResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type VerifyAdminMfa401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response VerifyAdminMfa401JSONResponse) VisitVerifyAdminMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyAdminMfa403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response VerifyAdminMfa403JSONResponse) VisitVerifyAdminMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyAdminMfa409JSONResponse struct{ ConflictJSONResponse }
+
+func (response VerifyAdminMfa409JSONResponse) VisitVerifyAdminMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyAdminMfa422JSONResponse struct{ ValidationFailedJSONResponse }
+
+func (response VerifyAdminMfa422JSONResponse) VisitVerifyAdminMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyAdminMfa429JSONResponse struct{ TooManyRequestsJSONResponse }
+
+func (response VerifyAdminMfa429JSONResponse) VisitVerifyAdminMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyAdminMfa503JSONResponse struct{ ServiceUnavailableJSONResponse }
+
+func (response VerifyAdminMfa503JSONResponse) VisitVerifyAdminMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyAdminMfadefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response VerifyAdminMfadefaultJSONResponse) VisitVerifyAdminMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminOverviewRequestObject struct {
+}
+
+type GetAdminOverviewResponseObject interface {
+	VisitGetAdminOverviewResponse(w http.ResponseWriter) error
+}
+
+type GetAdminOverview200JSONResponse AdminOverview
+
+func (response GetAdminOverview200JSONResponse) VisitGetAdminOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminOverview401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminOverview401JSONResponse) VisitGetAdminOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminOverview403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminOverview403JSONResponse) VisitGetAdminOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminOverviewdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetAdminOverviewdefaultJSONResponse) VisitGetAdminOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type RequestLoginCodeRequestObject struct {
 	Body *RequestLoginCodeJSONRequestBody
@@ -925,6 +1441,18 @@ func (response GetMedefaultJSONResponse) VisitGetMeResponse(w http.ResponseWrite
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// GetAdminMfaSetup Rahasia dan URI QR untuk memasang aplikasi authenticator
+	// (GET /admin/mfa/setup)
+	GetAdminMfaSetup(ctx context.Context, request GetAdminMfaSetupRequestObject) (GetAdminMfaSetupResponseObject, error)
+	// ConfirmAdminMfaSetup Mengonfirmasi pemasangan authenticator dengan satu kode yang benar
+	// (POST /admin/mfa/setup)
+	ConfirmAdminMfaSetup(ctx context.Context, request ConfirmAdminMfaSetupRequestObject) (ConfirmAdminMfaSetupResponseObject, error)
+	// VerifyAdminMfa Memverifikasi sesi saat ini dengan kode authenticator
+	// (POST /admin/mfa/verify)
+	VerifyAdminMfa(ctx context.Context, request VerifyAdminMfaRequestObject) (VerifyAdminMfaResponseObject, error)
+	// GetAdminOverview Ringkasan pekerjaan admin yang menunggu
+	// (GET /admin/overview)
+	GetAdminOverview(ctx context.Context, request GetAdminOverviewRequestObject) (GetAdminOverviewResponseObject, error)
 	// RequestLoginCode Mengirim kode masuk 6 digit ke email
 	// (POST /auth/code)
 	RequestLoginCode(ctx context.Context, request RequestLoginCodeRequestObject) (RequestLoginCodeResponseObject, error)
@@ -988,6 +1516,116 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// GetAdminMfaSetup operation middleware
+func (sh *strictHandler) GetAdminMfaSetup(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminMfaSetupRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminMfaSetup(ctx, request.(GetAdminMfaSetupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminMfaSetup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminMfaSetupResponseObject); ok {
+		if err := validResponse.VisitGetAdminMfaSetupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConfirmAdminMfaSetup operation middleware
+func (sh *strictHandler) ConfirmAdminMfaSetup(w http.ResponseWriter, r *http.Request) {
+	var request ConfirmAdminMfaSetupRequestObject
+
+	var body ConfirmAdminMfaSetupJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConfirmAdminMfaSetup(ctx, request.(ConfirmAdminMfaSetupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConfirmAdminMfaSetup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConfirmAdminMfaSetupResponseObject); ok {
+		if err := validResponse.VisitConfirmAdminMfaSetupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// VerifyAdminMfa operation middleware
+func (sh *strictHandler) VerifyAdminMfa(w http.ResponseWriter, r *http.Request) {
+	var request VerifyAdminMfaRequestObject
+
+	var body VerifyAdminMfaJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.VerifyAdminMfa(ctx, request.(VerifyAdminMfaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "VerifyAdminMfa")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(VerifyAdminMfaResponseObject); ok {
+		if err := validResponse.VisitVerifyAdminMfaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminOverview operation middleware
+func (sh *strictHandler) GetAdminOverview(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminOverviewRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminOverview(ctx, request.(GetAdminOverviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminOverview")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminOverviewResponseObject); ok {
+		if err := validResponse.VisitGetAdminOverviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // RequestLoginCode operation middleware

@@ -53,5 +53,19 @@ hanya menjalankan aplikasi. URL: https://staging.jd-sign.com.
   ditambahkan ke `.env` dan workflow `Staging` dijalankan ulang. Redirect URI:
   `https://staging.jd-sign.com/api/v1/auth/google/callback`.
 
+## Admin
+
+- Panel admin (`/admin`) butuh `ENCRYPTION_KEYS` di `.env`; `apply-staging-config.sh`
+  membuatnya bila belum ada. **Cadangkan `.env`**: tanpa kunci itu authenticator admin
+  tidak bisa dibaca dan harus di-reset.
+- Jadikan akun admin (akun dibuat bila belum ada):
+  `sudo docker exec jdsign-staging-api-1 jdsign admin create --email nama@email.com`.
+  Lalu masuk dengan kode email atau Google, buka `/admin`, pindai QR dengan aplikasi
+  authenticator, dan masukkan satu kode. Setiap sesi baru meminta kode authenticator lagi.
+- Ponsel authenticator hilang:
+  `sudo docker exec jdsign-staging-api-1 jdsign admin reset-totp --email nama@email.com`.
+  Semua sesi admin itu berakhir, dan authenticator dipasang ulang saat masuk berikutnya.
+- Kedua perintah dicatat di log audit sebagai "Sistem".
+
 Staging dapat dilihat publik dan diberi header `noindex`. Ini masih kerangka
 aplikasi; fitur marketplace akan mengikuti tahap pengembangan berikutnya.

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, type FocusEvent } from "react";
 
 import "./account.css";
-import { ChevronDownIcon, LogoutIcon } from "./icons";
+import { ChevronDownIcon, LogoutIcon, ShieldIcon } from "./icons";
 import { accountLinks, initials, roleLabels, type AccountSummary } from "./links";
 import { useLogout } from "./use-logout";
 
@@ -93,6 +93,12 @@ export function AccountMenu({ account, tone = "light" }: { account: AccountSumma
                 {link.label}
               </Link>
             ))}
+            {account.role === "admin" && (
+              <Link href="/admin" className="acct-panel-item" onClick={() => setOpen(false)}>
+                <ShieldIcon />
+                Panel admin
+              </Link>
+            )}
           </nav>
           <div className="acct-panel-sep" />
           <button type="button" className="acct-panel-item" onClick={logout} disabled={busy}>

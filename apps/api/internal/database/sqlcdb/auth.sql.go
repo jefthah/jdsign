@@ -156,12 +156,14 @@ const getSessionAccount = `-- name: GetSessionAccount :one
 SELECT
     s.remember,
     (s.last_seen_at < now() - interval '1 minute')::boolean AS needs_touch,
+    (s.mfa_verified_at IS NOT NULL)::boolean AS mfa_verified,
     u.id,
     u.email,
     u.name,
     u.role,
     u.is_active,
-    u.email_verified_at
+    u.email_verified_at,
+    (u.totp_confirmed_at IS NOT NULL)::boolean AS totp_enabled
 FROM sessions s
 JOIN users u ON u.id = s.user_id
 WHERE s.token_hash = $1
@@ -171,12 +173,14 @@ WHERE s.token_hash = $1
 type GetSessionAccountRow struct {
 	Remember        bool
 	NeedsTouch      bool
+	MfaVerified     bool
 	ID              int64
 	Email           string
 	Name            string
 	Role            string
 	IsActive        bool
 	EmailVerifiedAt pgtype.Timestamptz
+	TotpEnabled     bool
 }
 
 func (q *Queries) GetSessionAccount(ctx context.Context, tokenHash []byte) (GetSessionAccountRow, error) {
@@ -185,12 +189,14 @@ func (q *Queries) GetSessionAccount(ctx context.Context, tokenHash []byte) (GetS
 	err := row.Scan(
 		&i.Remember,
 		&i.NeedsTouch,
+		&i.MfaVerified,
 		&i.ID,
 		&i.Email,
 		&i.Name,
 		&i.Role,
 		&i.IsActive,
 		&i.EmailVerifiedAt,
+		&i.TotpEnabled,
 	)
 	return i, err
 }

@@ -80,12 +80,14 @@ VALUES (
 SELECT
     s.remember,
     (s.last_seen_at < now() - interval '1 minute')::boolean AS needs_touch,
+    (s.mfa_verified_at IS NOT NULL)::boolean AS mfa_verified,
     u.id,
     u.email,
     u.name,
     u.role,
     u.is_active,
-    u.email_verified_at
+    u.email_verified_at,
+    (u.totp_confirmed_at IS NOT NULL)::boolean AS totp_enabled
 FROM sessions s
 JOIN users u ON u.id = s.user_id
 WHERE s.token_hash = @token_hash

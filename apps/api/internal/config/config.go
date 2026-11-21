@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/jefthah/jdsign/apps/api/internal/encryption"
 )
 
 // LocalDatabaseURL points at the PostgreSQL container from compose.dev.yml.
@@ -17,6 +19,9 @@ const LocalAppURL = "http://localhost:3000"
 
 // DefaultMailFrom is the sender of transactional emails.
 const DefaultMailFrom = "JD Sign <hello@jd-sign.com>"
+
+// LocalEncryptionKeys is a fixed key for APP_ENV=local only; it protects nothing real.
+const LocalEncryptionKeys = "1:6a647369676e2d6c6f63616c2d646576656c6f706d656e742d6b65792d303031"
 
 // minimumSecretLength keeps LOGIN_CODE_SECRET long enough to resist guessing.
 const minimumSecretLength = 32
@@ -32,10 +37,13 @@ type Config struct {
 	MailFrom           string
 	GoogleClientID     string
 	GoogleClientSecret string
+	// Encryption comes from ENCRYPTION_KEYS. It is nil on staging when the variable is empty,
+	// which keeps the admin area closed.
+	Encryption *encryption.Keyring
 }
 
 // Load reads the configuration. Outside APP_ENV=local, DATABASE_URL, APP_URL, and
-// LOGIN_CODE_SECRET are required; production also requires RESEND_API_KEY.
+// LOGIN_CODE_SECRET are required; production also requires RESEND_API_KEY and ENCRYPTION_KEYS.
 func Load() (Config, error) {
 	cfg := Config{
 		Environment:        valueOrDefault("APP_ENV", "local"),
@@ -82,6 +90,19 @@ func Load() (Config, error) {
 
 	if cfg.ResendAPIKey == "" && cfg.Environment == "production" {
 		return Config{}, errors.New("RESEND_API_KEY wajib diisi di production agar kode masuk benar-benar terkirim")
+	}
+
+	switch keys := strings.TrimSpace(os.Getenv("ENCRYPTION_KEYS")); {
+	case keys != "":
+		keyring, err := encryption.ParseKeys(keys)
+		if err != nil {
+			return Config{}, err
+		}
+		cfg.Encryption = keyring
+	case local:
+		cfg.Encryption, _ = encryption.ParseKeys(LocalEncryptionKeys)
+	case cfg.Environment == "production":
+		return Config{}, errors.New(`ENCRYPTION_KEYS wajib diisi di production; buat dengan: echo "1:$(openssl rand -hex 32)"`)
 	}
 
 	if (cfg.GoogleClientID == "") != (cfg.GoogleClientSecret == "") {

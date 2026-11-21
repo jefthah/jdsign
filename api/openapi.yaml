@@ -156,6 +156,110 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         default:
           $ref: "#/components/responses/Error"
+  /admin/mfa/setup:
+    get:
+      operationId: getAdminMfaSetup
+      summary: Rahasia dan URI QR untuk memasang aplikasi authenticator
+      description: >-
+        Hanya untuk admin yang belum mengonfirmasi authenticator. Rahasia yang sama dikembalikan
+        sampai pemasangan dikonfirmasi, jadi memuat ulang halaman tidak membatalkan QR yang sudah
+        dipindai. Kode error 403: `admin_only`, `email_unverified`.
+      responses:
+        "200":
+          description: Rahasia belum dikonfirmasi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMfaSetup"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: confirmAdminMfaSetup
+      summary: Mengonfirmasi pemasangan authenticator dengan satu kode yang benar
+      description: >-
+        Mengaktifkan TOTP untuk akun ini dan sekaligus memverifikasi sesi saat ini. Batas laju
+        5 percobaan per menit per admin, bersama dengan /admin/mfa/verify.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminMfaCode"
+      responses:
+        "204":
+          description: Authenticator aktif dan sesi ini terverifikasi
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+        default:
+          $ref: "#/components/responses/Error"
+  /admin/mfa/verify:
+    post:
+      operationId: verifyAdminMfa
+      summary: Memverifikasi sesi saat ini dengan kode authenticator
+      description: >-
+        Wajib sekali untuk setiap sesi baru sebelum membuka area admin. Kode yang sudah pernah
+        dipakai ditolak. 409 `mfa_setup_required` jika authenticator belum dipasang.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminMfaCode"
+      responses:
+        "204":
+          description: Sesi ini boleh membuka area admin
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+        default:
+          $ref: "#/components/responses/Error"
+  /admin/overview:
+    get:
+      operationId: getAdminOverview
+      summary: Ringkasan pekerjaan admin yang menunggu
+      description: >-
+        Seperti semua endpoint admin lain, mensyaratkan sesi yang sudah diverifikasi authenticator.
+        Kode error 403: `admin_only`, `email_unverified`, `mfa_setup_required`, `mfa_required`.
+      responses:
+        "200":
+          description: Jumlah yang perlu ditindaklanjuti
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   responses:
     Error:
@@ -172,6 +276,12 @@ components:
             $ref: "#/components/schemas/Error"
     Forbidden:
       description: Tindakan tidak diizinkan
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: Tindakan tidak sesuai dengan keadaan saat ini
       content:
         application/json:
           schema:
@@ -306,3 +416,40 @@ components:
           enum: [buyer, seller, admin]
         emailVerified:
           type: boolean
+    AdminMfaSetup:
+      type: object
+      required: [otpauthUri, secret]
+      properties:
+        otpauthUri:
+          type: string
+          description: Isi kode QR, otpauth://totp/JD%20Sign:<email>?secret=...&issuer=JD%20Sign
+        secret:
+          type: string
+          description: Rahasia base32 untuk diketik manual ke aplikasi authenticator
+    AdminMfaCode:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          example: "492039"
+    AdminOverview:
+      type: object
+      required: [pendingSellers, pendingTemplates, pendingPayouts, pendingPayoutAmount, ordersInReview]
+      properties:
+        pendingSellers:
+          type: integer
+          description: Toko menunggu moderasi
+        pendingTemplates:
+          type: integer
+          description: Template perlu ditinjau
+        pendingPayouts:
+          type: integer
+          description: Pengajuan pencairan menunggu transfer
+        pendingPayoutAmount:
+          type: integer
+          format: int64
+          description: Total rupiah pencairan yang menunggu transfer
+        ordersInReview:
+          type: integer
+          description: Pesanan perlu rekonsiliasi (status review)

@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/jefthah/jdsign/apps/api/internal/database/sqlcdb"
+	"github.com/jefthah/jdsign/apps/api/internal/encryption"
 	"github.com/jefthah/jdsign/apps/api/internal/mail"
 )
 
@@ -53,6 +54,8 @@ const (
 	KindForbidden
 	// KindUnavailable means a dependency such as email delivery failed (HTTP 503).
 	KindUnavailable
+	// KindConflict means the request does not fit the account's current state (HTTP 409).
+	KindConflict
 )
 
 // Error is a sign-in failure the user can act on. Message is shown to the user as-is.
@@ -73,6 +76,10 @@ type Account struct {
 	Name          string
 	Role          string
 	EmailVerified bool
+	// TOTPEnabled means the account has a confirmed authenticator app (admins only).
+	TOTPEnabled bool
+	// MFAVerified means this session passed the authenticator check for the admin area.
+	MFAVerified bool
 }
 
 // Client describes where a sign-in comes from; it is stored on the session.
@@ -102,11 +109,13 @@ type Service struct {
 	queries *sqlcdb.Queries
 	mailer  mail.Mailer
 	secret  []byte
+	keys    *encryption.Keyring
 }
 
-// NewService creates the sign-in service. secret keys the HMAC that protects stored codes.
-func NewService(pool *pgxpool.Pool, mailer mail.Mailer, secret []byte) *Service {
-	return &Service{pool: pool, queries: sqlcdb.New(pool), mailer: mailer, secret: secret}
+// NewService creates the sign-in service. secret keys the HMAC that protects stored codes; keys
+// encrypts admin authenticator secrets and may be nil, which turns admin MFA off.
+func NewService(pool *pgxpool.Pool, mailer mail.Mailer, secret []byte, keys *encryption.Keyring) *Service {
+	return &Service{pool: pool, queries: sqlcdb.New(pool), mailer: mailer, secret: secret, keys: keys}
 }
 
 // RequestCode emails a new code unless one was sent during the resend cooldown.
@@ -347,6 +356,8 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Account, erro
 		Name:          row.Name,
 		Role:          row.Role,
 		EmailVerified: row.EmailVerifiedAt.Valid,
+		TOTPEnabled:   row.TotpEnabled,
+		MFAVerified:   row.MfaVerified,
 	}, nil
 }
 
@@ -472,6 +483,7 @@ func accountFromUser(user sqlcdb.User) Account {
 		Name:          user.Name,
 		Role:          user.Role,
 		EmailVerified: user.EmailVerifiedAt.Valid,
+		TOTPEnabled:   user.TotpConfirmedAt.Valid,
 	}
 }
 

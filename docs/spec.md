@@ -372,7 +372,7 @@ Percobaan pembayaran: `pending` → `ready` → `paid` / `closed` / `refunded`, 
 | `APP_ENV` | `local` / `staging` / `production` |
 | `APP_URL` | `https://jd-sign.com` |
 | `DATABASE_URL` | `postgres://...` |
-| `ENCRYPTION_KEYS` | daftar kunci AES-256 bernomor; kunci pertama untuk enkripsi. **Wajib dicadangkan** — kehilangan kunci berarti rekening dan token tidak bisa dibaca |
+| `ENCRYPTION_KEYS` | daftar kunci AES-256 bernomor `id:hex` dipisah koma, misalnya `2:<64 hex>,1:<64 hex>`; kunci pertama untuk enkripsi, semua kunci bisa mendekripsi. **Wajib dicadangkan** — kehilangan kunci berarti rekening, token, dan authenticator admin tidak bisa dibaca. Staging tanpa kunci: panel admin tertutup |
 | `LOGIN_CODE_SECRET` | rahasia HMAC untuk kode OTP |
 | `STORAGE_DIR` | folder file privat |
 | `PAYMENTS_ENABLED` | `false` |

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
-function Icon({ children, size = 20 }: { children: ReactNode; size?: number }) {
+/** 24×24 outline icon frame shared by the account and admin icons. */
+export function Icon({ children, size = 20 }: { children: ReactNode; size?: number }) {
   return (
     <svg
       width={size}
