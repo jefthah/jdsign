@@ -1922,6 +1922,18 @@ body:has(dialog[open]) {
   .desktop-nav {
     display: none;
   }
+  /* The avatar no longer sits at the right edge (the collection button and the
+     menu toggle follow it), so a panel aligned to it would hang off the left
+     side. Align it with the header's right edge instead, 10px below the avatar. */
+  .site-header .acct-menu {
+    position: static;
+  }
+  .site-header .acct-panel {
+    top: calc(50% + 30px);
+    right: 0;
+    width: min(300px, 100%);
+    max-width: none;
+  }
   .menu-toggle {
     display: flex;
     flex-direction: column;
